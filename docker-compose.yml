@@ -1,0 +1,42 @@
+# docker-compose.yml — 用一份声明式文件管理项目依赖的服务（容器）
+# 用法：
+#   docker compose up -d     启动（-d = 后台运行 detached）
+#   docker compose ps        看状态
+#   docker compose logs -f db  跟踪日志
+#   docker compose down      停止并删除容器（数据因为挂了 volume 不会丢）
+
+services:
+  # ── 一个服务 = 一类容器。这里只有数据库一个 ──
+  db:
+    image: postgres:16            # 用哪个镜像（锁 16 版，别用 latest 免得哪天自动升级出事）
+    container_name: labelhub-db   # 给容器起个固定名，方便 docker logs / exec 引用
+    restart: unless-stopped       # 容器异常退出就自动重启（除非你手动停的）
+
+    # 环境变量：postgres 镜像启动时读这些来初始化超级用户/密码/默认库
+    # 值用 ${...} 从同目录 .env 文件读，避免把密码写进会进 git 的文件
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+    # 端口映射 "宿主机:容器"——把你电脑的 5432 接到容器里 Postgres 的 5432
+    # 之后 NestJS 连 localhost:5432 就能进到这个容器
+    ports:
+      - "5432:5432"
+
+    # 数据卷：把容器里存数据的目录挂到一个由 Docker 管理的命名卷上
+    # 关键！没有这行，docker compose down 后数据全没；有了它，down/up 数据还在
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+    # 健康检查：让 Docker 知道库"真的能接受连接了"，而不只是进程起来了
+    # 后面 NestJS/Prisma 服务可以用 depends_on 等它 healthy 再启动
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+# 顶层声明命名卷。Docker 在它自己的地盘里管理这块磁盘空间，不在你项目目录里
+volumes:
+  pgdata:
