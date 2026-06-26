@@ -123,12 +123,15 @@ AI预审中(AI_REVIEWING)
 - **学到**：镜像/容器/卷/端口映射/环境变量；为什么数据要挂 volume 才不丢。
 - **自己试试**：`docker compose down` 再 `up`，确认数据还在（volume 生效）。
 
-### Day 3 — Prisma 入门 + 数据建模
+### Day 3 — Prisma 入门 + 数据建模 ✅（已完成）
 - **做什么**：装 Prisma，连上 Day 2 的 Postgres；在 `schema.prisma` 里建模型 **User / Role / Task / FormSchema / Annotation / Review** 及其关系；跑第一次 migration。
 - **为什么**：数据模型是整个系统的"骨架"，先把实体和关系定清楚，后面所有功能都挂在它上面。Prisma 把"改模型→改库→生成类型安全的查询代码"串成一条龙。
 - **产出**：`schema.prisma` 完整模型；一次成功的 `prisma migrate`；可用 `prisma studio` 可视化看表。
 - **学到**：ORM 是什么、migration 是什么、JSONB 字段怎么存动态表单 Schema 与标注结果、一对多/多对多关系。
 - **自己试试**：在 Prisma Studio 手动插一条 User，感受表结构。
+- **实际产出**：`backend/prisma/schema.prisma`（6 模型 + 4 枚举 `Role`/`AnnotationStatus`/`ReviewType`/`ReviewDecision`）；migration `20260626011000_init`；库内 5 张业务表 + `_prisma_migrations`。Studio 在 `http://localhost:5555`。
+- **建模决策**：Role 用 enum（角色固定，RolesGuard 直接判）；FormSchema 与 Task 做 1:1（`taskId @unique`），`schema` 字段 JSONB 存动态表单结构（最大亮点的落点）；Annotation 是状态机载体，`payload`/`result` 用 JSONB；Review 一行一次审核，AI/人工共用靠 `type` 区分，`reviewerId` 对 AI 可空；主键统一 `cuid()`。
+- **踩坑（重要）**：本机已装 Postgres 占了 5432 **和** 5433 的 loopback，Docker 库虽绑 `*` 但 127.0.0.1 被本机库抢先 → Prisma 连 `localhost:5432` 撞到本机库报 `P1010 denied`。**排查关键**：开 `log_connections` 发现 Docker 库零连接记录 + `lsof -iTCP:<port>` 看到本机 postgres。**解法**：Docker 宿主机端口改 **5434**（见 docker-compose + 两个 .env）。另外 Prisma 7 引擎在本机连不上 + 与 NestJS CommonJS 有 ESM 摩擦，**已固定到 Prisma 6**。
 
 ### Day 4 — 注册 / 登录 + 密码哈希 + JWT
 - **做什么**：写 `auth` 模块：注册（bcrypt 哈希存密码）、登录（校验→签发 JWT）；用 Passport-JWT 做"带 token 才能访问"的受保护路由。
@@ -177,6 +180,8 @@ AI预审中(AI_REVIEWING)
 - NestJS：**Module / Controller / Service / 依赖注入(DI) / Decorator**；为什么 `new` = 写死、DI = 可替换（mock-first 的底层原理）。
 - 工程：`node_modules` vs `package.json` vs `package-lock.json`（清单→install→实物）；Python 的 `venv`/`requirements.txt` 同理。
 - 前端：`.css`（样式）vs `.tsx`（JSX 结构 + TS 逻辑）；React 组件 = 返回 JSX 的函数；`useState`（状态，必须用 setter 改，UI 自动更新）。
+- **Prisma / 数据建模（Day3）**：ORM = 表↔对象自动映射，写 `prisma.user.findMany()` 而非手拼 SQL，且类型安全；"改 schema → migrate → generate Client"一条龙；migration = 库结构的版本历史（像 git，可重放）；`@unique` 把多对一收成一对一；反向关系字段不建库列只为方便查询；JSONB 存动态/可变结构（表单 schema、标注结果）。
+- **运维排错（Day3 实战）**：端口被本机服务抢占时 `lsof -nP -iTCP:<port> -sTCP:LISTEN` 看谁在听；loopback(127.0.0.1) 的具体绑定会盖过 `*` 绑定；DB 连不上先用 `log_connections` + 容器日志确认"请求到底有没有到这台库"。
 
 ## 9. 待办 / 下一步
 
@@ -185,8 +190,8 @@ AI预审中(AI_REVIEWING)
 - [x] W1-1c：frontend（Vite + React + TS）脚手架
 - [x] W1-1d：ai-service（FastAPI）骨架（mock /review）
 - [x] **W1-2（Day 2）**：Docker / Docker Compose 概念 + 起 PostgreSQL 容器（`docker-compose.yml` + `.env`/`.env.example`，库 healthy，volume 持久化已验证）
-- [ ] **W1-3（下一步，Day 3）**：Prisma 入门 + 数据建模（User/Role/Task/FormSchema/Annotation/Review）
-- [ ] W1-4：注册登录 + JWT + RBAC 三角色
+- [x] **W1-3（Day 3）**：Prisma 入门 + 数据建模（6 模型 + 4 枚举；migrate init 成功；Studio 可视化）。库端口因本机 Postgres 冲突改 5434；Prisma 固定 v6。
+- [ ] **W1-4（下一步，Day 4）**：注册登录 + JWT + RBAC 三角色
 - [ ] 待办：用 git 提交第一个快照（代码尚未 commit）
 
 > 本文件为"活文档"，每完成一个里程碑就更新。

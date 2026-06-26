@@ -1,0 +1,138 @@
+// ============================================================================
+// LabelHub 数据模型 (schema.prisma)
+// 这一份文件是"声明式"的：你描述想要什么样的表，prisma migrate 负责把库改成这样，
+// prisma generate 负责生成类型安全的查询代码(Client)。改模型 → migrate → 生成，三件套。
+// 连接串通过 env("DATABASE_URL") 读取，Prisma CLI 会自动加载 backend/.env。
+// ============================================================================
+
+// generator：生成查询用的 Client 代码，输出到 node_modules/@prisma/client（默认）。
+// Day4 在 NestJS 里 `import { PrismaClient } from '@prisma/client'` 即可。
+generator client {
+  provider = "prisma-client-js"
+}
+
+// datasource：用哪种数据库 + 连接串从哪读。
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────── 枚举 (固定取值集合) ───────────────────────────
+
+// 三种角色。用 enum 而非单独的表：角色固定、不动态增删，RolesGuard 直接判断。
+enum Role {
+  TASK_OWNER // 任务负责人：建任务、搭表单、分发、看进度、导出
+  ANNOTATOR // 标注员：领任务、标注、提交
+  REVIEWER // 审核员：人工审核、通过/打回
+}
+
+// 一条标注数据的生命周期状态（对应 DESIGN.md 第4节的状态机）
+enum AnnotationStatus {
+  PENDING // 待标注
+  IN_PROGRESS // 标注中
+  SUBMITTED // 已提交
+  AI_REVIEWING // AI 预审中
+  HUMAN_REVIEW // 待人工审核
+  APPROVED // 已入库
+}
+
+// 审核来源：AI 预审 还是 人工审核
+enum ReviewType {
+  AI
+  HUMAN
+}
+
+// 审核结论：通过 还是 驳回（AI 的是"建议"，人工的是"最终决定"）
+enum ReviewDecision {
+  APPROVED
+  REJECTED
+}
+
+// ─────────────────────────────── 模型 ───────────────────────────────
+
+// 用户：注册登录的主体，带一个角色。
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique // 登录用，不可重复
+  passwordHash String // 永远存哈希，绝不存明文（Day4 用 bcrypt）
+  name         String
+  role         Role     @default(ANNOTATOR)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt // 每次更新自动刷新
+
+  // 反向关系（不在库里建列，只是让你能从 user 一路查到它名下的东西）
+  ownedTasks  Task[] // 作为负责人创建的任务
+  annotations Annotation[] // 作为标注员做的标注
+  reviews     Review[] // 作为审核员做的审核
+}
+
+// 任务：一次标注作业的容器，归属一个负责人，配一份表单。
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String? // 可空：标注说明
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 关系：谁建的（多对一 User）
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id])
+
+  // 关系：这个任务的表单定义（一对一）和它名下的所有标注（一对多）
+  formSchema  FormSchema?
+  annotations Annotation[]
+}
+
+// 表单定义：项目最大亮点"schema-driven UI"的存储点。
+// schema 是 JSONB——表单"结构"是数据不是代码，设计器产出它，工作台读它动态渲染。
+model FormSchema {
+  id        String   @id @default(cuid())
+  version   Int      @default(1) // 为将来改版留口子
+  schema    Json // JSONB：字段、组件类型、校验规则
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 一对一绑定到 Task：taskId 加 @unique 就把"多对一"收紧成"一对一"
+  taskId String @unique
+  task   Task   @relation(fields: [taskId], references: [id])
+}
+
+// 标注数据：状态机的载体。一行 = 一条待标注/已标注的数据。
+model Annotation {
+  id        String           @id @default(cuid())
+  status    AnnotationStatus @default(PENDING)
+  payload   Json // JSONB：要标注的原始数据（如一张图的 URL、一段文本）
+  result    Json? // JSONB：标注结果，结构随表单动态变化；未标注时为空
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  // 关系：属于哪个任务（多对一）
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id])
+
+  // 关系：被哪个标注员领取（可空——PENDING 时还没人领）
+  annotatorId String?
+  annotator   User?   @relation(fields: [annotatorId], references: [id])
+
+  // 关系：这条数据的所有审核记录（一对多：可能 AI 审一次 + 人工审一次 + 打回再审…）
+  reviews Review[]
+}
+
+// 审核记录：AI 预审和人工审核共用，靠 type 区分。一行 = 一次审核。
+model Review {
+  id        String         @id @default(cuid())
+  type      ReviewType // AI 还是 HUMAN
+  decision  ReviewDecision // 通过/驳回（AI 的是建议，人工的是最终）
+  score     Float? // AI 可给一个质量分（0~1 或 0~100），人工可空
+  comment   String? // 理由/批注
+  raw       Json? // AI 返回的完整结构化结果，留底便于调试
+  createdAt DateTime       @default(now())
+
+  // 关系：审的是哪条标注（多对一）
+  annotationId String
+  annotation   Annotation @relation(fields: [annotationId], references: [id])
+
+  // 关系：谁审的（可空——AI 审核没有 reviewer）
+  reviewerId String?
+  reviewer   User?   @relation(fields: [reviewerId], references: [id])
+}

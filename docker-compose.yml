@@ -19,10 +19,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
 
-    # 端口映射 "宿主机:容器"——把你电脑的 5432 接到容器里 Postgres 的 5432
-    # 之后 NestJS 连 localhost:5432 就能进到这个容器
+    # 端口映射 "宿主机:容器"——宿主机用 5434（本机已装的 Postgres 占了 5432 和 5433），
+    # 容器内部仍是 5432。之后 NestJS/Prisma 连 localhost:5434 就进到这个容器。
     ports:
-      - "5432:5432"
+      - "5434:5432"
 
     # 数据卷：把容器里存数据的目录挂到一个由 Docker 管理的命名卷上
     # 关键！没有这行，docker compose down 后数据全没；有了它，down/up 数据还在
