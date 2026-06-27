@@ -139,6 +139,12 @@ AI预审中(AI_REVIEWING)
 - **产出**：`POST /auth/register`、`POST /auth/login` 返回 token；一个 `@UseGuards` 保护的测试接口。
 - **学到**：为什么密码绝不能明文存、哈希 vs 加密、JWT 的结构与无状态鉴权、NestJS Guard。
 - **自己试试**：用错误密码登录看是否被拒；拿过期/乱填的 token 访问受保护接口看 401。
+- **实际产出**（✅ 完成）：
+  - `backend/src/prisma/`：`PrismaService`（继承 `PrismaClient` + `OnModuleInit` 启动时 `$connect`）+ `@Global() PrismaModule`，全局可注入数据库。
+  - `backend/src/auth/`：`AuthService`（注册 bcrypt 哈希 cost=10 / 登录 `bcrypt.compare` / 签发 JWT，payload 只放 `sub/email/role`）、`AuthController`（`POST /auth/register`、`POST /auth/login`、`GET /auth/me` 受 `AuthGuard('jwt')` 保护）、`JwtStrategy`（Bearer 取 token + `JWT_SECRET` 验签 + `validate` 挂 `request.user`）、`@CurrentUser()` 参数装饰器、`RegisterDto`/`LoginDto`（class-validator）。
+  - `main.ts` 开全局 `ValidationPipe({ whitelist, forbidNonWhitelisted, transform })`；`AppModule` 引入 `ConfigModule.forRoot({isGlobal})` + `PrismaModule` + `AuthModule`；`.env` 加 `JWT_SECRET`(随机 48 字节) + `JWT_EXPIRES_IN=7d`。
+  - 端到端验证全过：注册→409 查重→登录拿 token→带 token /me 200→无 token/错密码 401→脏数据 400；DB 里密码确为 `$2b$10$…` 哈希；JWT 载荷 base64 解出可读（证明未加密）。
+- **依赖**：`bcrypt`/`@nestjs/jwt`/`@nestjs/passport`/`passport`/`passport-jwt`/`@nestjs/config`/`class-validator`/`class-transformer`(+ `@types`)。
 
 ### Day 5 — RBAC 三角色 + 收尾
 - **做什么**：基于 Role 实现 `@Roles()` 装饰器 + `RolesGuard`，让"任务负责人/标注员/审核员"各自只能访问授权接口；补关键单测；把 Week 1 成果 git 提交存档。
