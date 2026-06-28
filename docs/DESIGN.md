@@ -152,6 +152,13 @@ AI预审中(AI_REVIEWING)
 - **产出**：角色守卫生效（越权访问 403）；Auth/RBAC 单测；Week 1 的第一个/若干 commit。
 - **学到**：认证(authentication) vs 授权(authorization) 的区别、自定义装饰器 + Guard 的组合套路。
 - **自己试试**：用标注员的 token 调任务负责人专属接口，确认拿到 403。
+- **实际产出**（✅ 完成）：
+  - `backend/src/auth/roles.decorator.ts`：`@Roles(...Role[])`，基于 `SetMetadata(ROLES_KEY, roles)` 给路由贴"允许的角色"便签；复用 Prisma 的 `Role` enum，角色名写错编译期就报错。
+  - `backend/src/auth/roles.guard.ts`：`RolesGuard implements CanActivate`，用注入的 `Reflector.getAllAndOverride` 读便签 → 没贴便签放行 → 读 `request.user.role` 比对 → 不符抛 `ForbiddenException`(403，自定义中文消息)。
+  - `auth.controller.ts` 加两条演示路由:`GET /auth/owner-only`(仅 `TASK_OWNER`)、`GET /auth/review-zone`(`REVIEWER`+`TASK_OWNER`)；守卫顺序 `@UseGuards(AuthGuard('jwt'), RolesGuard)`——先验票拿 `user`，再查角色。
+  - `roles.guard.spec.ts`：3 个单测(无便签放行 / 角色匹配放行 / 不符抛 403)，全绿；`tsc --noEmit` 0 错误。
+  - 端到端验证全过：标注员→owner-only **403**、负责人→owner-only **200**、标注员→review-zone **403**、负责人→review-zone **200**、无 token→**401**(认证先于授权拦截)。
+- **关键概念**：`@UseGuards` 多守卫**从左到右**顺序执行，`RolesGuard` 依赖 `AuthGuard` 先挂好 `request.user`；以类形式传给 `@UseGuards` 的守卫 Nest 会自动 DI 实例化(`Reflector` 全局可用)，**无需**在 module 的 `providers` 注册。
 
 > **本周完成标志**：能 Docker 起库 → 注册登录拿 token → 不同角色访问被正确放行/拦截 → 模型已建好可扩展。下周(W2)在此地基上做动态表单设计器。
 
@@ -197,7 +204,8 @@ AI预审中(AI_REVIEWING)
 - [x] W1-1d：ai-service（FastAPI）骨架（mock /review）
 - [x] **W1-2（Day 2）**：Docker / Docker Compose 概念 + 起 PostgreSQL 容器（`docker-compose.yml` + `.env`/`.env.example`，库 healthy，volume 持久化已验证）
 - [x] **W1-3（Day 3）**：Prisma 入门 + 数据建模（6 模型 + 4 枚举；migrate init 成功；Studio 可视化）。库端口因本机 Postgres 冲突改 5434；Prisma 固定 v6。
-- [ ] **W1-4（下一步，Day 4）**：注册登录 + JWT + RBAC 三角色
-- [ ] 待办：用 git 提交第一个快照（代码尚未 commit）
+- [x] **W1-4（Day 4）**：注册登录 + bcrypt 哈希 + JWT + Passport 守卫(已 commit)
+- [x] **W1-5（Day 5）**：RBAC 三角色 `@Roles()` + `RolesGuard`(越权 403) + 守卫单测；Week 1 全部 commit 存档
+- [ ] **W2（下一步）**：动态表单设计器(拖拽生成 JSON Schema → 存 DB → 标注台动态渲染)
 
 > 本文件为"活文档"，每完成一个里程碑就更新。
