@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
+import { FormSchemaModule } from './form-schema/form-schema.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { AuthModule } from './auth/auth.module';
     PrismaModule, // @Global 的数据库服务，全局可用
     HealthModule,
     AuthModule, // ← Day4 新增
+    FormSchemaModule, // ← W2-1 新增：表单 Schema 存取
   ],
   controllers: [AppController],
   providers: [AppService],

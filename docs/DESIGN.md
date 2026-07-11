@@ -164,6 +164,58 @@ AI预审中(AI_REVIEWING)
 
 ---
 
+## 5.2 Week 2 五天拆解（动态表单设计器 + 渲染器）
+
+> 目标：一周内做出难度三件套的 **#1 —— Schema-driven UI**。任务负责人用**拖拽设计器**搭一张标注表单 → 产出一份 **JSON Schema** 存进数据库(JSONB) → 标注工作台读这份 Schema **动态渲染**成可填写、可校验的真实表单。
+> 主线思想：**表单"结构"是数据，不是写死的代码。** 一套渲染器 + 不同的 Schema = 无限种表单。
+> 节奏沿用 Week 1：每天 = 一个可验证的小成果；契约先行 → 设计器 → 渲染器 → 打通闭环。
+
+### Day 1 — 定义 Schema 契约 + 后端 FormSchema 存取
+- **做什么**：先用 TypeScript 定义这份"表单 Schema"长什么样(字段数组，每个字段有 `id / type / label / required / options / validation`)，支持的字段类型先定 6 种：单行文本、多行文本、数字、单选、多选、下拉。后端 NestJS 加 `FormSchema` 的存取接口：按 `taskId` **upsert**(Day3 已把 FormSchema 与 Task 做成 1:1)，`schema` 字段直接存进 JSONB。
+- **为什么**：设计器(产出方)和渲染器(消费方)都依赖这份契约，**必须先把它一次定清楚**，否则两边各写各的对不上。契约先行是本周不返工的关键。
+- **产出**：一份共享的 `form-schema` 类型定义；`PUT /tasks/:id/form-schema`(存)、`GET /tasks/:id/form-schema`(取) 两个接口；能用 curl/Postman 存一份手写 JSON 再读回来。
+- **学到**：为什么"用数据描述 UI"(schema-driven) 比写死组件更灵活；JSONB 怎么装一份任意结构；契约先行(contract-first)的工程价值。
+- **自己试试**：手写一份含 2~3 个字段的 JSON 存进去，再 GET 出来，确认原样返回。
+- **实际产出**（✅ 完成）：
+  - `backend/src/form-schema/form-schema.types.ts`：契约本体。6 种字段类型(`text/textarea/number/radio/checkbox/select`)；**判别联合**(以 `type` 为标签，TS 自动收窄 → 渲染器 Day4 分发渲染的基础)分成 `TextField/NumberField/ChoiceField`；`FieldOption` 拆 `label`(给人看)/`value`(存结果)；**校验规则即数据**(`TextValidation`/`NumberValidation` 存进字段)；整表 = `FormSchemaDefinition{version,title,fields}`，即存进 `FormSchema.schema` (JSONB) 的形状。
+  - `backend/src/form-schema/`：`FormSchemaService`(按 taskId **upsert** 1:1；先查 Task 存在给友好 404；语义校验)、`FormSchemaController`(`PUT /tasks/:taskId/form-schema` 存、`GET …` 取)、`FormSchemaModule`(注册进 AppModule)、`dto/upsert-form-schema.dto.ts`(class-validator 嵌套校验 `@ValidateNested`+`@Type`)。
+  - **关键分工**：class-validator(DTO) 管"形状"(类型/必填/type 白名单/嵌套结构)；service 手写"语义/业务规则"(选择类必须有 options、非选择类不许有 options、字段 id 不重复)——跨字段条件规则 class-validator 表达别扭，放代码里更清楚。
+  - **权限**：写(PUT) `@UseGuards(AuthGuard('jwt'), RolesGuard)` + `@Roles(TASK_OWNER)`；读(GET) 仅 `AuthGuard('jwt')`(标注员要读它渲染)。资源级归属("只有**这个**任务的 owner")留 W3。
+  - **踩坑**：`isolatedModules`+`emitDecoratorMetadata` 下，被装饰器修饰的属性引用纯类型 `FieldType` 必须 `import type`(否则 TS1272)。DTO 属性的 `strictPropertyInitialization(2564)` 仍是编辑器误报(项目 tsconfig 未开 strict)，`tsc --noEmit` 0 错误。
+  - 端到端验证全过(库 :5434 + 服务 :3000)：owner 存合法表单→200(2 字段)、annotator 读→200、annotator 写→**403**、select 无 options→**400**、type=rating→**400**、改版再存→200 且库内恒 1 行(upsert)、不存在任务→404、无 token→401。
+
+### Day 2 — 前端接入 + 设计器骨架（组件面板 + 画布）
+- **做什么**：前端搭页面路由，做出设计器页面的**三栏骨架**——左侧"字段类型面板"、中间"画布(已添加的字段列表)"、右侧留给配置面板(Day3)。先用**点击添加**：点左侧一个类型，就往中间画布(React state 里的字段数组)加一个字段。
+- **为什么**：先把"设计器管理一份 Schema 状态"的主循环跑通(点击→改 state→UI 重渲染)，这是后面拖拽和配置的地基；拖拽是锦上添花，先用点击验证数据流。
+- **产出**：设计器页面可访问；点击面板能往画布加字段，画布实时显示当前字段列表；右上角能看到当前 Schema 的 JSON 预览。
+- **学到**：React 受控状态管理一份复杂对象/数组、列表渲染(`.map` + `key`)、把"UI 操作"翻译成"对 state 的增删改"。
+- **自己试试**：加几个不同类型的字段，看右侧 JSON 预览是否同步变化。
+
+### Day 3 — 拖拽排序 + 字段配置面板
+- **做什么**：引入拖拽库(如 `dnd-kit`)让画布里的字段能**拖拽排序**；右侧做**配置面板**：选中一个字段后可改它的 `label`、是否 `required`、单选/多选/下拉的 `options`、以及校验规则(文本长度、数字范围、正则)。
+- **为什么**：一张真实表单的字段有顺序、有必填、有选项、有校验——这些都要能可视化配置并写回 Schema，设计器才算"能用"。
+- **产出**：字段可拖拽调序；选中字段可编辑其全部属性并即时反映到 JSON 预览；一份结构完整、可保存的 Schema。
+- **学到**：拖拽交互的数据模型(拖动 = 重排数组)、"选中态"的管理、把校验规则也当数据存进 Schema。
+- **自己试试**：配一个"必填 + 最多 20 字"的文本字段和一个带 3 个选项的下拉，看 JSON 里校验规则是否正确落下。
+
+### Day 4 — 动态渲染器 + schema 驱动校验
+- **做什么**：写**渲染器组件** `<FormRenderer schema={...} />`：吃一份 Schema，`.map` 字段 → 按 `type` 渲染对应输入控件，拼成一张**真实可填写**的表单；接 `react-hook-form`，把 Schema 里的校验规则(required/长度/范围/正则)翻译成**运行时校验**，填错实时报错。
+- **为什么**：这是本周的技术高潮——**证明"同一份数据能生成一张真表单"**。渲染器与设计器解耦：任何来源的合法 Schema 都能渲染，这正是 schema-driven UI 的说服力所在。
+- **产出**：给渲染器喂 Day1 手写或 Day3 产出的 Schema，就能得到一张能填、能校验、能拿到填写结果(JSON)的表单。
+- **学到**：`type → 组件`的映射分发(switch/查表)、受控表单 + `react-hook-form`、把"声明式校验规则"转成"运行时校验"。
+- **自己试试**：手改 Schema 里某字段的 `type` 或校验规则，不改一行渲染器代码，看表单跟着变。
+
+### Day 5 — 打通闭环 + 联调 + 收尾
+- **做什么**：把三段接起来——设计器"保存"→ 调 Day1 的接口把 Schema 存库；做一个"标注工作台"页面按 `taskId` 从后端**拉 Schema** → 交给 `<FormRenderer>` 渲染 → 填写并"提交"收集结果 JSON(先本地打印/或存 Annotation)。端到端联调 + git 提交 + 更新本设计文档。
+- **为什么**：单点都通不等于闭环通。走一遍"设计→存→取→渲染→提交"证明数据契约在真实链路里对得上，才算完成本周里程碑；周末收尾留干净 commit。
+- **产出**：设计器存的表单，工作台能原样渲染出来并填写提交；Week 2 的若干 commit；DESIGN.md 更新实际产出。
+- **学到**：前后端联调(fetch/axios + 错误处理)、一份数据契约贯穿多个页面/服务的全链路视角。
+- **自己试试**：在设计器里改表单再保存，刷新工作台，确认渲染出的是新版本。
+
+> **本周完成标志**：能在设计器里拖拽搭出一张带校验的表单 → 存进数据库 → 工作台从库里读出并动态渲染成可填写可校验的真实表单 → 提交拿到结果 JSON。难度三件套 #1(schema-driven UI) 落地，为 W3 工作流(把提交结果推入状态机)铺好路。
+
+---
+
 ## 6. 关键决策记录（Decision Log）
 
 | 日期 | 决策 | 理由 |
@@ -206,6 +258,10 @@ AI预审中(AI_REVIEWING)
 - [x] **W1-3（Day 3）**：Prisma 入门 + 数据建模（6 模型 + 4 枚举；migrate init 成功；Studio 可视化）。库端口因本机 Postgres 冲突改 5434；Prisma 固定 v6。
 - [x] **W1-4（Day 4）**：注册登录 + bcrypt 哈希 + JWT + Passport 守卫(已 commit)
 - [x] **W1-5（Day 5）**：RBAC 三角色 `@Roles()` + `RolesGuard`(越权 403) + 守卫单测；Week 1 全部 commit 存档
-- [ ] **W2（下一步）**：动态表单设计器(拖拽生成 JSON Schema → 存 DB → 标注台动态渲染)
+- [x] **W2-1（Day 1）**：定义表单 Schema 契约(TS 类型，6 种字段，判别联合) + 后端 FormSchema 存取接口(按 taskId upsert 进 JSONB；DTO 形状校验 + service 语义校验；写限 TASK_OWNER)。端到端验证全过。
+- [ ] **W2-2（Day 2）**：前端接入 + 设计器三栏骨架(字段面板 / 画布 / 配置位)，点击添加字段 + JSON 预览
+- [ ] **W2-3（Day 3）**：拖拽排序(dnd-kit) + 字段配置面板(label/required/options/校验规则)
+- [ ] **W2-4（Day 4）**：动态渲染器 `<FormRenderer>` + schema 驱动的运行时校验(react-hook-form)
+- [ ] **W2-5（Day 5）**：打通闭环(设计器存 → 工作台按 taskId 取并渲染 → 填写提交) + 联调 + commit
 
 > 本文件为"活文档"，每完成一个里程碑就更新。
