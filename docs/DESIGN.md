@@ -190,6 +190,17 @@ AI预审中(AI_REVIEWING)
 - **产出**：设计器页面可访问；点击面板能往画布加字段，画布实时显示当前字段列表；右上角能看到当前 Schema 的 JSON 预览。
 - **学到**：React 受控状态管理一份复杂对象/数组、列表渲染(`.map` + `key`)、把"UI 操作"翻译成"对 state 的增删改"。
 - **自己试试**：加几个不同类型的字段，看右侧 JSON 预览是否同步变化。
+- **实际产出**（✅ 完成，经多轮产品打磨，超出原"骨架"计划）：
+  - `frontend/src/types/form-schema.ts`：后端契约的**前端镜像**(手动复制；改契约时两边一起改)。
+  - **三栏布局**(`FormDesigner.tsx` 容器，持 `title`/`fields`/`subjectKind`/`subjectText` 状态 = 唯一真相)：左 `FieldPalette`(6 类型按钮点击 `onAdd`)、中 `SubjectPreview`(**标注对象**：图/文/音/视四选一，对着真实内容判断该加哪些字段)、右 `DesignerCanvas`(标注表单)。
+  - **内联编辑器 `FieldEditor.tsx`(问卷星式，WYSIWYG)**：画布本身就是表单，每题**原地编辑**——改标题、勾 Required、选择类可编辑/增删选项。放弃了"抽象卡片+另开配置面板"的思路(用户反馈"很奇怪")，把编辑内联进画布。
+  - **预览弹窗 `FormPreview.tsx`(Day4 渲染器雏形)**：把 Schema 按 type 渲染成**真实控件**(text/number/radio/checkbox/select)；Submit 用**浏览器原生 required 校验** + 收集答案按**字段 id 为 key** 拼成结果 JSON 展示(演示"表单→填写→产出结果"闭环)。
+  - **软提示**：选择类选项 >7 个时提示"改用下拉"，点一下当场把 `type` 切成 `select`(给建议不强制)。
+  - 其它：`SchemaPreview`(JSON 收进"Dev view"右侧抽屉，默认关，负责人看不到)、`SubjectMedia`/`subject.ts`(图音视占位复用)、`fieldFactory.ts`(`FIELD_TYPE_META`+`createField`+`labelOf`/`iconOf`)、`FormDesigner.css`(全站配色/三栏/弹窗)。
+  - **全英文 UI**(简历项目面向美国雇主)；`index.html` 标题改 `LabelHub · Form Designer`。代码注释仍中文。
+  - **React 概念落地**：`useState` 存数组/对象=真相；`.map`+`key` 列表渲染；**状态提升**(状态在容器，子组件 props 收数据/抛事件)；**不可变更新**(`[...prev,x]`/`filter`/`map`)；`FormData` 收集原生表单。
+  - **约束**：前端 tsconfig `verbatimModuleSyntax:true` → 类型导入一律 `import type`；`react-jsx` → 不用 `import React`。
+  - **不加路由**(单页)，留到 Day5 工作台。验证：`npm run build`(tsc+vite) 通过；dev `:5173` 全流程可用(加/删/编辑字段、切标注对象、预览+提交出结果 JSON)。
 
 ### Day 3 — 拖拽排序 + 字段配置面板
 - **做什么**：引入拖拽库(如 `dnd-kit`)让画布里的字段能**拖拽排序**；右侧做**配置面板**：选中一个字段后可改它的 `label`、是否 `required`、单选/多选/下拉的 `options`、以及校验规则(文本长度、数字范围、正则)。
@@ -259,7 +270,7 @@ AI预审中(AI_REVIEWING)
 - [x] **W1-4（Day 4）**：注册登录 + bcrypt 哈希 + JWT + Passport 守卫(已 commit)
 - [x] **W1-5（Day 5）**：RBAC 三角色 `@Roles()` + `RolesGuard`(越权 403) + 守卫单测；Week 1 全部 commit 存档
 - [x] **W2-1（Day 1）**：定义表单 Schema 契约(TS 类型，6 种字段，判别联合) + 后端 FormSchema 存取接口(按 taskId upsert 进 JSONB；DTO 形状校验 + service 语义校验；写限 TASK_OWNER)。端到端验证全过。
-- [ ] **W2-2（Day 2）**：前端接入 + 设计器三栏骨架(字段面板 / 画布 / 配置位)，点击添加字段 + JSON 预览
+- [x] **W2-2（Day 2）**：前端设计器三栏骨架(字段面板 / 画布 / JSON 预览)，点击添加/删除字段 + JSON 实时预览；React 状态提升 + 列表渲染 + 不可变更新。build 通过。
 - [ ] **W2-3（Day 3）**：拖拽排序(dnd-kit) + 字段配置面板(label/required/options/校验规则)
 - [ ] **W2-4（Day 4）**：动态渲染器 `<FormRenderer>` + schema 驱动的运行时校验(react-hook-form)
 - [ ] **W2-5（Day 5）**：打通闭环(设计器存 → 工作台按 taskId 取并渲染 → 填写提交) + 联调 + commit
