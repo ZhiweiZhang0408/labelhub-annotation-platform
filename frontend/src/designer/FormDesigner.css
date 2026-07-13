@@ -338,6 +338,24 @@
   gap: 10px;
   margin-bottom: 12px;
 }
+.feditor__drag {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 6px;
+  cursor: grab;
+  touch-action: none; /* dnd-kit 要求：关掉触屏默认手势，拖动才顺 */
+}
+.feditor__drag:hover {
+  background: var(--chip-bg);
+  color: var(--text-h);
+}
+.feditor__drag:active {
+  cursor: grabbing;
+}
 .feditor__index {
   display: grid;
   place-items: center;

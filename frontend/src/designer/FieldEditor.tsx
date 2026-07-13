@@ -7,6 +7,8 @@
 // 所有编辑都通过 onUpdate 把"如何改这个字段"的函数抛给上层，由上层改状态。
 // ============================================================================
 
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { FormField } from '../types/form-schema';
 import { labelOf } from './fieldFactory';
 
@@ -31,6 +33,24 @@ function newOptionValue() {
 }
 
 export function FieldEditor({ index, field, onUpdate, onRemove }: Props) {
+  // useSortable：让这张卡片"可排序"。传入它的 id(唯一)，dnd-kit 就能追踪它。
+  // 返回：setNodeRef(挂到 li 上标记"这是可拖的节点")、transform/transition(拖动时的
+  // 位移动画)、attributes/listeners(要绑到"抓手"上的键鼠事件)、isDragging(是否正被拖)。
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: field.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform), // 把位移对象转成 CSS 字符串
+    transition,
+    opacity: isDragging ? 0.5 : 1, // 正被拖的卡片半透明，看得更清楚
+  };
+
   const isChoice =
     field.type === 'radio' ||
     field.type === 'checkbox' ||
@@ -77,8 +97,20 @@ export function FieldEditor({ index, field, onUpdate, onRemove }: Props) {
       : false;
 
   return (
-    <li className="feditor">
+    // setNodeRef 标记这个 li 是可拖节点；style 应用拖动位移
+    <li ref={setNodeRef} style={style} className="feditor">
       <div className="feditor__head">
+        {/* 抓手：只有它绑了拖拽事件(listeners)，所以只有拖它才移动卡片，
+            输入框照常能点、能编辑 */}
+        <button
+          type="button"
+          className="feditor__drag"
+          title="Drag to reorder"
+          {...attributes}
+          {...listeners}
+        >
+          ⠿
+        </button>
         <span className="feditor__index">{index + 1}</span>
         <span className="feditor__type">{labelOf(field.type)}</span>
         <div className="feditor__head-right">

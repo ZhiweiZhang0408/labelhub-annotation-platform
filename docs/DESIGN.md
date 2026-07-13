@@ -208,6 +208,11 @@ AI预审中(AI_REVIEWING)
 - **产出**：字段可拖拽调序；选中字段可编辑其全部属性并即时反映到 JSON 预览；一份结构完整、可保存的 Schema。
 - **学到**：拖拽交互的数据模型(拖动 = 重排数组)、"选中态"的管理、把校验规则也当数据存进 Schema。
 - **自己试试**：配一个"必填 + 最多 20 字"的文本字段和一个带 3 个选项的下拉，看 JSON 里校验规则是否正确落下。
+- **实际产出**（✅ 完成）：
+  - **配置面板** part 提前在 D2 用"内联编辑"实现了(改标题/必填/选项都在卡片上原地改)，故 D3 只做拖拽排序。
+  - **拖拽排序**：装 `@dnd-kit/core` + `/sortable` + `/utilities`。`FieldEditor` 用 `useSortable({id})` 变可拖节点 + 一个 `⠿` **抓手**(只有抓手绑 `listeners`，所以拖抓手才移动、点输入框照常编辑)；`DesignerCanvas` 包 `DndContext`(sensors: Pointer distance:4 + Keyboard) + `SortableContext`(vertical 策略, items=fields 的 id)，`onDragEnd` 拿 active/over 通知上层；`FormDesigner.reorderFields` 用 `arrayMove` 换位(仍是不可变更新，返回新数组)。
+  - 验证：`npm run build` 通过；dev :5173 拖抓手可排序、被拖项半透明、其它自动让位、松手后 JSON 的 `fields` 顺序同步、编辑不受影响。
+  - **注意**：D3 只是把"顺序"这一交互补齐；校验(D4)和存库/工作台(D5)仍未做。
 
 ### Day 4 — 动态渲染器 + schema 驱动校验
 - **做什么**：写**渲染器组件** `<FormRenderer schema={...} />`：吃一份 Schema，`.map` 字段 → 按 `type` 渲染对应输入控件，拼成一张**真实可填写**的表单；接 `react-hook-form`，把 Schema 里的校验规则(required/长度/范围/正则)翻译成**运行时校验**，填错实时报错。
@@ -271,7 +276,7 @@ AI预审中(AI_REVIEWING)
 - [x] **W1-5（Day 5）**：RBAC 三角色 `@Roles()` + `RolesGuard`(越权 403) + 守卫单测；Week 1 全部 commit 存档
 - [x] **W2-1（Day 1）**：定义表单 Schema 契约(TS 类型，6 种字段，判别联合) + 后端 FormSchema 存取接口(按 taskId upsert 进 JSONB；DTO 形状校验 + service 语义校验；写限 TASK_OWNER)。端到端验证全过。
 - [x] **W2-2（Day 2）**：前端设计器三栏骨架(字段面板 / 画布 / JSON 预览)，点击添加/删除字段 + JSON 实时预览；React 状态提升 + 列表渲染 + 不可变更新。build 通过。
-- [ ] **W2-3（Day 3）**：拖拽排序(dnd-kit) + 字段配置面板(label/required/options/校验规则)
+- [x] **W2-3（Day 3）**：拖拽排序(dnd-kit `useSortable`+`DndContext`+`arrayMove`，带抓手)；配置面板已在 D2 内联实现。
 - [ ] **W2-4（Day 4）**：动态渲染器 `<FormRenderer>` + schema 驱动的运行时校验(react-hook-form)
 - [ ] **W2-5（Day 5）**：打通闭环(设计器存 → 工作台按 taskId 取并渲染 → 填写提交) + 联调 + commit
 

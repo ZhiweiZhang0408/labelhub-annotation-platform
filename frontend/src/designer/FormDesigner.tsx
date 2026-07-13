@@ -8,6 +8,7 @@
 // ============================================================================
 
 import { useRef, useState } from 'react';
+import { arrayMove } from '@dnd-kit/sortable';
 import type {
   FieldType,
   FormField,
@@ -49,6 +50,17 @@ export function FormDesigner() {
   // 改字段：找到 id 那一项，用传入的 updater 造新字段替换(其余不动)。内联编辑走这里。
   function updateField(id: string, updater: (f: FormField) => FormField) {
     setFields((prev) => prev.map((f) => (f.id === id ? updater(f) : f)));
+  }
+
+  // 拖拽排序：把 activeId 那项移动到 overId 的位置。
+  // arrayMove 是 dnd-kit 提供的辅助函数，返回换好序的【新数组】(仍是不可变更新)。
+  function reorderFields(activeId: string, overId: string) {
+    setFields((prev) => {
+      const from = prev.findIndex((f) => f.id === activeId);
+      const to = prev.findIndex((f) => f.id === overId);
+      if (from === -1 || to === -1) return prev;
+      return arrayMove(prev, from, to);
+    });
   }
 
   const schema: FormSchemaDefinition = { version: 1, title, fields };
@@ -100,6 +112,7 @@ export function FormDesigner() {
           fields={fields}
           onUpdate={updateField}
           onRemove={handleRemove}
+          onReorder={reorderFields}
         />
       </div>
 
