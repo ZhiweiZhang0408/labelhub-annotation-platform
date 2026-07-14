@@ -96,6 +96,40 @@ export function FieldEditor({ index, field, onUpdate, onRemove }: Props) {
       ? field.options.length > 7
       : false;
 
+  // 校验规则编辑：把值写进 field.validation。空字符串 → undefined(等于不设这条规则)。
+  const setTextRule = (key: 'minLength' | 'maxLength', raw: string) =>
+    onUpdate((f) =>
+      f.type === 'text' || f.type === 'textarea'
+        ? { ...f, validation: { ...f.validation, [key]: raw === '' ? undefined : Number(raw) } }
+        : f,
+    );
+  const setPattern = (raw: string) =>
+    onUpdate((f) =>
+      f.type === 'text' || f.type === 'textarea'
+        ? { ...f, validation: { ...f.validation, pattern: raw === '' ? undefined : raw } }
+        : f,
+    );
+  const setNumRule = (key: 'min' | 'max', raw: string) =>
+    onUpdate((f) =>
+      f.type === 'number'
+        ? { ...f, validation: { ...f.validation, [key]: raw === '' ? undefined : Number(raw) } }
+        : f,
+    );
+
+  // 配置时的矛盾检查：最小 > 最大 = 谁都填不对，提醒负责人。
+  let ruleWarning: string | null = null;
+  if (field.type === 'text' || field.type === 'textarea') {
+    const min = field.validation?.minLength;
+    const max = field.validation?.maxLength;
+    if (min != null && max != null && min > max)
+      ruleWarning = 'Min length can’t be greater than max length';
+  } else if (field.type === 'number') {
+    const min = field.validation?.min;
+    const max = field.validation?.max;
+    if (min != null && max != null && min > max)
+      ruleWarning = 'Min can’t be greater than max';
+  }
+
   return (
     // setNodeRef 标记这个 li 是可拖节点；style 应用拖动位移
     <li ref={setNodeRef} style={style} className="feditor">
@@ -128,13 +162,18 @@ export function FieldEditor({ index, field, onUpdate, onRemove }: Props) {
         </div>
       </div>
 
-      {/* 可编辑的问题标题 */}
+      {/* 可编辑的问题标题。留空 → 标红 + 提醒(后端存库会拒空标题) */}
       <input
-        className="feditor__label"
+        className={`feditor__label${
+          field.label.trim() === '' ? ' feditor__label--err' : ''
+        }`}
         value={field.label}
         onChange={(e) => setLabel(e.target.value)}
         placeholder="Question title"
       />
+      {field.label.trim() === '' && (
+        <span className="feditor__warn">⚠ Question title can’t be empty</span>
+      )}
 
       {/* 按类型渲染主体 */}
       {isChoice && 'options' in field ? (
@@ -143,7 +182,9 @@ export function FieldEditor({ index, field, onUpdate, onRemove }: Props) {
             <div className="opt" key={opt.value}>
               <span className="opt__marker">{OPTION_MARKER[field.type]}</span>
               <input
-                className="opt__input"
+                className={`opt__input${
+                  opt.label.trim() === '' ? ' opt__input--err' : ''
+                }`}
                 value={opt.label}
                 onChange={(e) => setOption(i, e.target.value)}
                 placeholder={`Option ${i + 1}`}
@@ -173,6 +214,67 @@ export function FieldEditor({ index, field, onUpdate, onRemove }: Props) {
         </div>
       ) : (
         <FieldPreview type={field.type} />
+      )}
+
+      {/* 校验规则：文本类 = 长度 + 正则；数字类 = 范围。写进 field.validation。 */}
+      {(field.type === 'text' || field.type === 'textarea') && (
+        <div className="feditor__rules">
+          <span className="feditor__rules-label">Rules</span>
+          <label className="rule">
+            Min length
+            <input
+              type="number"
+              min={0}
+              value={field.validation?.minLength ?? ''}
+              onChange={(e) => setTextRule('minLength', e.target.value)}
+            />
+          </label>
+          <label className="rule">
+            Max length
+            <input
+              type="number"
+              min={0}
+              value={field.validation?.maxLength ?? ''}
+              onChange={(e) => setTextRule('maxLength', e.target.value)}
+            />
+          </label>
+          <label className="rule">
+            Pattern
+            <input
+              type="text"
+              placeholder="regex"
+              value={field.validation?.pattern ?? ''}
+              onChange={(e) => setPattern(e.target.value)}
+            />
+          </label>
+          {ruleWarning && (
+            <span className="feditor__rules-warn">⚠ {ruleWarning}</span>
+          )}
+        </div>
+      )}
+      {field.type === 'number' && (
+        <div className="feditor__rules">
+          <span className="feditor__rules-label">Rules</span>
+          <label className="rule">
+            Min
+            <input
+              type="number"
+              value={field.validation?.min ?? ''}
+              onChange={(e) => setNumRule('min', e.target.value)}
+            />
+          </label>
+          <label className="rule">
+            Max
+            <input
+              type="number"
+              value={field.validation?.max ?? ''}
+              onChange={(e) => setNumRule('max', e.target.value)}
+            />
+          </label>
+          {ruleWarning && (
+            <span className="feditor__rules-warn">⚠ {ruleWarning}</span>
+          )}
+        </div>
       )}
     </li>
   );

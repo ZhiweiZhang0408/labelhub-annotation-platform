@@ -426,6 +426,18 @@
   color: var(--text);
   opacity: 0.5;
 }
+.feditor__label--err {
+  border-bottom-color: #e5484d;
+}
+.feditor__warn {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #e5484d;
+}
+.opt__input--err {
+  border-bottom-color: #e5484d;
+}
 .feditor__preview {
   width: 100%;
   box-sizing: border-box;
@@ -761,6 +773,150 @@ textarea.feditor__preview {
   color: var(--text-h);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* ── 渲染器 FormRenderer（预览弹窗 / 以后工作台复用）──────────────── */
+.rd__title {
+  font-size: 18px;
+  color: var(--text-h);
+  margin: 0 0 16px;
+}
+.rd__empty {
+  font-size: 14px;
+  color: var(--text);
+}
+.rd__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.rd__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rd__label {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-h);
+}
+.rd__req {
+  color: #e5484d;
+  margin-left: 4px;
+}
+.rd__input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 14px;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 11px;
+  outline: none;
+}
+.rd__input:focus {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+.rd__input--err {
+  border-color: #e5484d;
+}
+.rd__input--err:focus {
+  box-shadow: 0 0 0 3px rgba(229, 72, 77, 0.15);
+}
+textarea.rd__textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+.rd__opts {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.rd__opt {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  color: var(--text-h);
+  cursor: pointer;
+}
+.rd__opt input {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.rd__error {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: #e5484d;
+}
+.rd__submit {
+  margin-top: 24px;
+  width: 100%;
+  font-size: 14px;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 9px;
+  padding: 11px;
+  cursor: pointer;
+  transition: filter 0.12s ease;
+}
+.rd__submit:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.rd__submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── 设计器：字段的校验规则行 ─────────────────────────────────────── */
+.feditor__rules {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.feditor__rules-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text);
+}
+.feditor__rules .rule {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text);
+}
+.feditor__rules .rule input {
+  width: 62px;
+  font-size: 12px;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 7px;
+  outline: none;
+}
+.feditor__rules .rule input[type='text'] {
+  width: 120px;
+}
+.feditor__rules .rule input:focus {
+  border-color: var(--accent-border);
+}
+.feditor__rules-warn {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: #e5484d;
 }
 
 /* 图/音/视占位（中栏和预览弹窗共用）*/

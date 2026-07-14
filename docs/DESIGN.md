@@ -214,12 +214,20 @@ AI预审中(AI_REVIEWING)
   - 验证：`npm run build` 通过；dev :5173 拖抓手可排序、被拖项半透明、其它自动让位、松手后 JSON 的 `fields` 顺序同步、编辑不受影响。
   - **注意**：D3 只是把"顺序"这一交互补齐；校验(D4)和存库/工作台(D5)仍未做。
 
-### Day 4 — 动态渲染器 + schema 驱动校验
+### Day 4 — 动态渲染器 + schema 驱动校验 ✅（已完成）
 - **做什么**：写**渲染器组件** `<FormRenderer schema={...} />`：吃一份 Schema，`.map` 字段 → 按 `type` 渲染对应输入控件，拼成一张**真实可填写**的表单；接 `react-hook-form`，把 Schema 里的校验规则(required/长度/范围/正则)翻译成**运行时校验**，填错实时报错。
 - **为什么**：这是本周的技术高潮——**证明"同一份数据能生成一张真表单"**。渲染器与设计器解耦：任何来源的合法 Schema 都能渲染，这正是 schema-driven UI 的说服力所在。
 - **产出**：给渲染器喂 Day1 手写或 Day3 产出的 Schema，就能得到一张能填、能校验、能拿到填写结果(JSON)的表单。
 - **学到**：`type → 组件`的映射分发(switch/查表)、受控表单 + `react-hook-form`、把"声明式校验规则"转成"运行时校验"。
 - **自己试试**：手改 Schema 里某字段的 `type` 或校验规则，不改一行渲染器代码，看表单跟着变。
+- **实际产出**（✅ 完成，未用 react-hook-form，手写受控 + 校验更透明好教）：
+  - **`FormRenderer.tsx`（独立渲染器，D5 工作台复用）**：吃 Schema，按 `type` 渲染受控控件(text/textarea/number/radio/checkbox/select)；`validateField()` 把 Schema 的 `validation` 翻译成运行时检查(required/minLength/maxLength/pattern/min/max)；提交时逐字段校验，不过就逐条标红 + 拦住提交，过了才 `onSubmit(结果)`；结果对象以**字段 id 为 key**(呼应契约)。改动有错的字段即时重校验(错误自动消失)。
+  - **`FormPreview` 重构**：改为外壳(遮罩/标注对象/结果) + 内嵌 `<FormRenderer/>`，删掉自己那套渲染(旧 `PreviewControl` 移入渲染器)。
+  - **设计器加校验规则配置**：`FieldEditor` 文本类加 Min/Max length + Pattern，数字类加 Min/Max，写进 `field.validation`。
+  - **配置时的语义自查(用户提的 bug + 自查同类)**：Min>Max(文本/数字)、**空标题**、**空选项** 均标红提醒(不硬拦；理念同后端 W2-1 语义校验)。留边角(负数/maxLength=0)到 D5"保存"时用"有警告禁止保存"总闸统一拦。
+  - **两层校验**：填写校验(渲染器查标注员的答案) + 配置校验(设计器查负责人配的规矩本身)。
+  - 验证：`npm run build` 通过；dev :5173 —— 设计器配规则→JSON 落 `validation`；预览提交触发 required/长度/范围/正则报错、改对即消、全过才出结果 JSON。
+  - **待补**：`react-hook-form` 未用(手写足够且更好教)；渲染器目前仅在预览里用，D5 接工作台。
 
 ### Day 5 — 打通闭环 + 联调 + 收尾
 - **做什么**：把三段接起来——设计器"保存"→ 调 Day1 的接口把 Schema 存库；做一个"标注工作台"页面按 `taskId` 从后端**拉 Schema** → 交给 `<FormRenderer>` 渲染 → 填写并"提交"收集结果 JSON(先本地打印/或存 Annotation)。端到端联调 + git 提交 + 更新本设计文档。
@@ -277,7 +285,7 @@ AI预审中(AI_REVIEWING)
 - [x] **W2-1（Day 1）**：定义表单 Schema 契约(TS 类型，6 种字段，判别联合) + 后端 FormSchema 存取接口(按 taskId upsert 进 JSONB；DTO 形状校验 + service 语义校验；写限 TASK_OWNER)。端到端验证全过。
 - [x] **W2-2（Day 2）**：前端设计器三栏骨架(字段面板 / 画布 / JSON 预览)，点击添加/删除字段 + JSON 实时预览；React 状态提升 + 列表渲染 + 不可变更新。build 通过。
 - [x] **W2-3（Day 3）**：拖拽排序(dnd-kit `useSortable`+`DndContext`+`arrayMove`，带抓手)；配置面板已在 D2 内联实现。
-- [ ] **W2-4（Day 4）**：动态渲染器 `<FormRenderer>` + schema 驱动的运行时校验(react-hook-form)
+- [x] **W2-4（Day 4）**：独立渲染器 `<FormRenderer>` + schema 驱动运行时校验(手写受控，未用 react-hook-form)；设计器加校验规则配置 + 配置语义自查(Min>Max/空标题/空选项标红)。
 - [ ] **W2-5（Day 5）**：打通闭环(设计器存 → 工作台按 taskId 取并渲染 → 填写提交) + 联调 + commit
 
 > 本文件为"活文档"，每完成一个里程碑就更新。
