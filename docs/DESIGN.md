@@ -65,29 +65,24 @@
 
 ---
 
-## 4. 核心数据流：一条标注数据的一生（工作流状态机）
+## 4. 核心数据流：一条标注数据的一生（可配置工作流状态机）
+
+**产品定位**：LabelHub 是一家给别的公司提供**数据标注方案**的企业，对外卖三种方案；每个任务创建时选一种(`Task.plan`)，其名下的数据就按对应流水线流转。同一套状态机引擎、三张不同的转移表。
 
 ```
-待标注(PENDING)
-   │ 标注员开始
-   ▼
-标注中(IN_PROGRESS)
-   │ 提交
-   ▼
-已提交(SUBMITTED)
-   │ 触发 AI 预审
-   ▼
-AI预审中(AI_REVIEWING)
-   ├─ AI通过 ─▶ 待人工审核(HUMAN_REVIEW)
-   └─ AI驳回 ─▶ 待人工审核(HUMAN_REVIEW)   ← AI 给建议，最终由人决定
-                    │
-       ┌────────────┼────────────┐
-       │审核通过                  │打回重标
-       ▼                         ▼
-   已入库(APPROVED)          标注中(IN_PROGRESS)  ← 回到标注员
+① AI_PLUS_HUMAN（AI标注 + 人工审核）
+   待处理 →🤖AI标注→ AI处理中 →(系统)→ 待人工审核 ─┬─审核通过─▶ 已入库
+                                                └─打回──▶ 待处理(AI重标)
+
+② HUMAN_ONLY（纯人工）
+   待标注 →领取→ 标注中 →提交→ 待人工审核 ─┬─审核通过─▶ 已入库
+                                        └─打回──▶ 标注中(原标注员重标)
+
+③ AI_ONLY（纯AI）
+   待处理 →🤖AI标注→ AI处理中 →(系统)自动通过→ 已入库   （全程无人工）
 ```
 
-> 状态机用显式定义（状态 + 允许的转移 + 触发者角色），集中管理，便于测试与扩展。
+> 状态机用显式定义（状态 + 允许的转移 + 触发者角色），且**按方案分三套转移表**，集中管理、便于测试与扩展。加/改方案 = 改表，不动业务代码。AI 步骤 W3 用 mock，W4 换真模型。
 
 ---
 
@@ -250,12 +245,65 @@ AI预审中(AI_REVIEWING)
 
 ---
 
+## 5.3 Week 3 五天拆解（工作流引擎）
+
+> 目标：做出难度三件套的 **#2 —— 长链路工作流状态机**。一条标注数据从"待标注"一路流到"已入库"，中间经过标注、AI 预审(mock)、人工审核、打回重标，**每一步状态转移由一个显式状态机集中管控**(谁能在什么状态做什么)，而不是散落的 if-else。
+> 顺带把 W2 的三个前端 mock 接到真后端：**上传数据 → 生成待标注项**、**Release 发布/分发**、**标注结果入库**。
+> 前提：模型 W1-D3 已建好(`Annotation`/`Review` + `AnnotationStatus`/`ReviewType`/`ReviewDecision`)，本周给它们注入**行为**。AI 预审**仍用 mock**(真模型第 4 周接)。
+> 节奏沿用前两周：状态机/后端先行 → 前端页面 → 全链路联调。
+
+### Day 1 — 显式状态机 + Annotation 状态流转后端
+- **做什么**：把 §4 那张状态图写成**代码里的显式状态机**——一张"允许的转移表"(从哪个状态、经什么动作、到哪个状态、谁有权触发)。写一个 `TransitionService`：所有状态变更都过它，非法转移(如"已入库"再改回)直接报错。给 Task 加 `status`(DRAFT/PUBLISHED) 字段并 migration。
+- **为什么**：状态机是本周所有功能的**主心骨**。先把"合法的路"定死在一处，后面标注/审核/打回都只是"触发一次合法转移"，逻辑不会散。
+- **产出**：`workflow` 模块含转移表 + `TransitionService`(校验并执行状态变更，写 `AnnotationStatus`)；Task 有 DRAFT/PUBLISHED；一组转移的单测(合法通过 / 非法抛错)。
+- **学到**：状态机为什么比散落 if-else 好；"状态 + 动作 + 角色"三元组建模；不变量集中守护。
+- **自己试试**：手动调 `TransitionService` 让一条 Annotation 从 PENDING 走到 SUBMITTED，再试一个非法跳转看是否被拦。
+- **实际产出**（✅ 完成，含"三方案"改造）：
+  - `schema.prisma`：`enum TaskStatus{DRAFT,PUBLISHED}` + `Task.status`；`enum WorkflowPlan{AI_PLUS_HUMAN,HUMAN_ONLY,AI_ONLY}` + `Task.plan @default(AI_PLUS_HUMAN)`。migration `add_task_status` + `add_task_plan`。
+  - `workflow.transitions.ts`：**按方案分三套转移表** `PLAN_TRANSITIONS`(AI_PLUS_HUMAN / HUMAN_ONLY / AI_ONLY，动作 claim/submit/aiLabel/aiToHuman/aiApprove/approve/reject) + 纯函数 `checkTransition(plan,from,action,role)` → `{ok,to}` 或 `{ok:false,code:'ILLEGAL'|'FORBIDDEN'}`。
+  - `workflow.service.ts`：`WorkflowService.apply(id,action,role,extraData)` —— 加载 Annotation(带出 `task.plan`) → 按方案 checkTransition 守门(非法→400 / 越权→403) → 落库改 status。`workflow.module.ts` 导出，注册进 AppModule。
+  - `CreateTaskDto`+`TasksService`：建任务可选 `plan`；列表带出 `plan`/`status`。
+  - `workflow.transitions.spec.ts`：15 个单测覆盖三条流水线(纯人工领取/提交/审核/打回、AI+人审、纯AI自动入库) + 通用守卫(已入库锁死、越权、系统步骤)，全绿。全套 20 测试通过、`tsc` 干净。
+
+### Day 2 — 数据上传 + 生成待标注项 + 发布
+- **做什么**：把 W2 的上传 mock 接真——后端加**文件上传接口**(存哪定下来：小文件本地磁盘 + 静态服务 / 文本直接进 payload)，上传后为该任务**批量生成 `Annotation` 记录**(状态 PENDING，`payload` 指向文件/文本)。`Release` 真发布：Task `status` → PUBLISHED，只有已发布任务对标注员可见。
+- **为什么**：没有真实待标注项，状态机就没有"料"可流。这一步把"数据"灌进系统。
+- **产出**：owner 上传 N 条数据 → 库里多 N 条 `Annotation(PENDING)`；点 Release → 任务 PUBLISHED；前端上传/发布从 mock 切到真 API。
+- **学到**：文件上传(multipart)与存储取舍、把"一批数据"炸开成"一条条待标注项"、发布=状态门槛。
+- **自己试试**：上传 3 张图，去 Prisma Studio 看是否多了 3 条 PENDING 的 Annotation。
+
+### Day 3 — 标注员：领取 + 标注 + 提交（真数据 + 真流转）
+- **做什么**：标注员端接真——列出已发布任务的待标注项；**领取**一条(PENDING→IN_PROGRESS，写 `annotatorId`)；工作台展示**真实标注对象**(payload 里的图/文/音/视) + 表单(复用 `FormRenderer`)；提交 → 结果存进 `Annotation.result`，状态 IN_PROGRESS→SUBMITTED(过 D1 的状态机)。
+- **为什么**：这是长链路的前半段落地——数据第一次真正"动"起来，且每次动都走状态机。
+- **产出**：标注员能拉一条真数据、对着它填表单、提交入库；`result` 有值、状态推进；工作台占位换成真数据。
+- **学到**：领取=并发下的认领(谁先领谁做)、把提交结果按字段 id 存 JSONB、前端动作↔后端状态转移的映射。
+- **自己试试**：领一条标注提交，看 Annotation 的 status 变 SUBMITTED、result 落库。
+
+### Day 4 — AI 预审(mock) + 人工审核台
+- **做什么**：提交后触发 **AI 预审(mock)**——调 W1 的 FastAPI mock `/review`(或后端桩)生成一条 `Review(type=AI)`(给个分数 + 通过/驳回**建议**)，状态 SUBMITTED→(AI_REVIEWING)→HUMAN_REVIEW。做**审核台**(reviewer)：列出待人工审核项，展示标注对象 + 提交结果 + AI 建议；**通过**→APPROVED；**打回**(带批注)→IN_PROGRESS(退回标注员)，各写一条 `Review(type=HUMAN)`。
+- **为什么**：长链路的后半段 + 分叉(通过/打回)。AI 先占位，把"人审"这条最有业务价值的流程跑通。
+- **产出**：提交项自动带上 AI 建议；审核员能通过/打回；打回的数据回到标注员重标(形成闭环回路)。
+- **学到**：AI/人工审核共用 `Review` 靠 `type` 区分、审核作为状态机的分叉节点、打回=回到上游状态。
+- **自己试试**：把一条已提交数据打回，确认它回到标注员的待办里、能再次标注。
+
+### Day 5 — 打通全链路 + 进度台 + 收尾
+- **做什么**：做 owner 的**进度台**(按状态统计：待标注/标注中/已提交/待审核/已入库/打回)。端到端走一条数据的**完整一生**：PENDING→…→APPROVED，再演示一次"打回→重标→通过"的回路。联调 + 提交 + 更新文档。
+- **为什么**：单点通不等于链路通。让一条数据真正跑完全程 + owner 能看见全局进度，才算 #2 落地。
+- **产出**：进度台可看各状态数量；一条数据完整流转 + 打回回路演示；Week 3 的若干 commit。
+- **学到**：聚合统计(group by status)、长链路的全局视角、状态机在真实链路里的自洽。
+- **自己试试**：造几条数据跑到不同状态，看进度台数字对不对。
+
+> **本周完成标志**：一条标注数据能在**显式状态机**管控下走完 待标注→标注→提交→AI预审(mock)→人工审核→入库 的全程，打回能退回重标；owner 能看进度。难度三件套 #2(长链路 workflow) 落地。AI 预审此时仍是 mock，W4 换真模型。
+
+---
+
 ## 6. 关键决策记录（Decision Log）
 
 | 日期 | 决策 | 理由 |
 |---|---|---|
 | 2026-06-22 | 前端 React/TS + 主服务 NestJS + AI 子服务 FastAPI | 全栈 TS 降本提速 + Python 写 AI 最自然，对口美国 SDE/全栈/AI 岗 |
 | 2026-06-22 | **AI 质检 Agent 前三周用 mock，第4周接真模型** | 先验证工作流骨架（风险低），再插入不确定性最大的 AI 部分 |
+| 2026-07-16 | **产品定位：LabelHub 卖三种标注方案**（AI+人审 / 纯人工 / 纯AI），每任务选一(`Task.plan`)走不同工作流 | 一套状态机引擎 + 三张转移表 = 可配置工作流，含金量更高；贴合"标注服务公司"真实业务 |
 | 待定 | 真模型选型（Claude API / OpenAI / 本地 Ollama） | 第4周再定 |
 
 ---
@@ -297,5 +345,10 @@ AI预审中(AI_REVIEWING)
 - [x] **W2-3（Day 3）**：拖拽排序(dnd-kit `useSortable`+`DndContext`+`arrayMove`，带抓手)；配置面板已在 D2 内联实现。
 - [x] **W2-4（Day 4）**：独立渲染器 `<FormRenderer>` + schema 驱动运行时校验(手写受控，未用 react-hook-form)；设计器加校验规则配置 + 配置语义自查(Min>Max/空标题/空选项标红)。
 - [x] **W2-5（Day 5）**：打通闭环 ✅ —— 后端 CORS + tasks 接口；前端路由/登录/首页/工作台；设计器 Save(PUT)+保存闸；角色分离。前端 mock：四类型上传 + Release 弹窗(W3 接真后端)。**Week 2 完工，schema-driven UI 落地。**
+- [x] **W3-1（Day 1）**：显式状态机(`TRANSITIONS` 转移表 + `checkTransition` + `WorkflowService.apply`，非法→400/越权→403) + Task status(DRAFT/PUBLISHED) migration + 10 单测全绿
+- [ ] **W3-2（Day 2）**：数据上传接口(存储) → 批量生成 Annotation(PENDING) + Release 真发布(Task→PUBLISHED)；前端上传/发布切真 API
+- [ ] **W3-3（Day 3）**：标注员领取(PENDING→IN_PROGRESS)+ 工作台展示真数据 + 提交(result 入库, →SUBMITTED)
+- [ ] **W3-4（Day 4）**：AI 预审(mock, 写 Review type=AI + 建议) + 审核台(通过→APPROVED / 打回→IN_PROGRESS, Review type=HUMAN)
+- [ ] **W3-5（Day 5）**：owner 进度台(按状态统计) + 全链路端到端联调(含打回回路) + commit
 
 > 本文件为"活文档"，每完成一个里程碑就更新。

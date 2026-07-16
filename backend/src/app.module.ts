@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { FormSchemaModule } from './form-schema/form-schema.module';
 import { TasksModule } from './tasks/tasks.module';
+import { WorkflowModule } from './workflow/workflow.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { TasksModule } from './tasks/tasks.module';
     AuthModule, // ← Day4 新增
     FormSchemaModule, // ← W2-1 新增：表单 Schema 存取
     TasksModule, // ← D5 新增：任务最小存取
+    WorkflowModule, // ← W3-1 新增：状态机
   ],
   controllers: [AppController],
   providers: [AppService],

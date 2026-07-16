@@ -48,6 +48,19 @@ enum ReviewDecision {
   REJECTED
 }
 
+// 任务的发布状态（W3）：草稿(设计中) / 已发布(标注员可见可领)
+enum TaskStatus {
+  DRAFT
+  PUBLISHED
+}
+
+// LabelHub 对外提供的三种标注方案（决定这个任务走哪条工作流水线）
+enum WorkflowPlan {
+  AI_PLUS_HUMAN // ① AI 标注 → 人工审核
+  HUMAN_ONLY // ② 纯人工：人工标注 → 人工审核
+  AI_ONLY // ③ 纯 AI：AI 标注 → 自动入库
+}
+
 // ─────────────────────────────── 模型 ───────────────────────────────
 
 // 用户：注册登录的主体，带一个角色。
@@ -68,11 +81,13 @@ model User {
 
 // 任务：一次标注作业的容器，归属一个负责人，配一份表单。
 model Task {
-  id          String   @id @default(cuid())
+  id          String     @id @default(cuid())
   title       String
   description String? // 可空：标注说明
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  status      TaskStatus   @default(DRAFT) // W3：草稿 / 已发布
+  plan        WorkflowPlan @default(AI_PLUS_HUMAN) // W3：选哪种标注方案(定工作流)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   // 关系：谁建的（多对一 User）
   ownerId String

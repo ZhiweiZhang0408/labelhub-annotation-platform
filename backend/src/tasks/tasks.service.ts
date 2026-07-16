@@ -10,10 +10,15 @@ import { CreateTaskDto } from './dto/create-task.dto';
 export class TasksService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // 建任务：归属当前登录的负责人。
+  // 建任务：归属当前登录的负责人。plan 不传则用 schema 默认(AI_PLUS_HUMAN)。
   create(ownerId: string, dto: CreateTaskDto) {
     return this.prisma.task.create({
-      data: { title: dto.title, description: dto.description ?? null, ownerId },
+      data: {
+        title: dto.title,
+        description: dto.description ?? null,
+        ownerId,
+        ...(dto.plan ? { plan: dto.plan } : {}),
+      },
     });
   }
 
@@ -28,6 +33,8 @@ export class TasksService {
       id: t.id,
       title: t.title,
       description: t.description,
+      plan: t.plan,
+      status: t.status,
       createdAt: t.createdAt,
       hasForm: t.formSchema !== null,
     }));
