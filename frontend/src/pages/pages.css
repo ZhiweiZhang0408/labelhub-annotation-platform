@@ -1,0 +1,264 @@
+/* 通用 */
+.page-center {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  color: var(--text);
+  font-size: 14px;
+}
+.btn-primary {
+  font-size: 14px;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  padding: 9px 16px;
+  cursor: pointer;
+  transition: filter 0.12s ease;
+  white-space: nowrap;
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.linkbtn {
+  font-size: 13px;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.12s ease;
+}
+.linkbtn:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
+/* ── 登录页 ─────────────────────────────────────────────────────── */
+.auth {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+.auth__card {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg, #fff);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 30px 28px;
+  box-shadow: var(--shadow);
+}
+.auth__brand {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+.auth__title {
+  font-size: 22px;
+  margin: 6px 0 22px;
+}
+.auth__label {
+  font-size: 12px;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.auth__input {
+  font-size: 14px;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  outline: none;
+  margin-bottom: 16px;
+}
+.auth__input:focus {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+.auth__submit {
+  font-size: 14px;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  padding: 11px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.auth__submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.auth__error {
+  font-size: 13px;
+  color: #e5484d;
+  margin: 0 0 12px;
+}
+.auth__hint {
+  font-size: 11.5px;
+  color: var(--text);
+  margin: 16px 0 0;
+  text-align: center;
+}
+
+/* ── 首页 ───────────────────────────────────────────────────────── */
+.home__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 22px;
+  border-bottom: 1px solid var(--border);
+}
+.home__user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text);
+}
+.home__role {
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.home__main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 22px;
+}
+.home__h1 {
+  font-size: 26px;
+  margin: 0 0 20px;
+}
+.home__create {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.home__create-input {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  outline: none;
+}
+.home__create-input:focus {
+  border-color: var(--accent-border);
+}
+.home__muted {
+  color: var(--text);
+  font-size: 14px;
+}
+.home__error {
+  color: #e5484d;
+  font-size: 14px;
+}
+.tasklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.taskrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--panel-bg, #fff);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.taskrow__main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.taskrow__title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-h);
+}
+.taskrow__badge {
+  font-size: 11px;
+  color: var(--text);
+  background: var(--chip-bg, #f4f3f7);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.taskrow__badge.is-on {
+  color: #2f9e44;
+  background: rgba(47, 158, 68, 0.12);
+}
+.taskrow__actions {
+  display: flex;
+  gap: 8px;
+}
+.taskrow__disabled {
+  font-size: 13px;
+  color: var(--text);
+  opacity: 0.4;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+
+/* ── 工作台 ─────────────────────────────────────────────────────── */
+.wb__top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 56px;
+  padding: 0 22px;
+  border-bottom: 1px solid var(--border);
+}
+.wb__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+.wb__main {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 28px 22px 60px;
+}
+.wb__card {
+  background: var(--panel-bg, #fff);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 26px 24px;
+}
+.wb__done-title {
+  font-size: 18px;
+  color: var(--text-h);
+  margin: 0 0 6px;
+}
+.wb__subject {
+  margin-bottom: 22px;
+}
+.wb__subject-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text);
+  text-align: center;
+}

@@ -1,59 +1,83 @@
 // ============================================================================
-// FormDesigner —— 设计器容器（今天的主角）
+// FormDesigner —— 设计器容器
 // ----------------------------------------------------------------------------
-// 持有整张表单的"唯一真相"：title + fields 数组。加/删/改字段的逻辑都在这里，
-// 子组件靠 props 拿数据、发信号。
-// 布局：左=字段面板 · 中=标注对象(参考) · 右=标注表单(在这搭)。
-// JSON 预览给开发者调试用，默认收起，点开滑出右侧抽屉。
+// 持有整张表单的"唯一真相"：title + fields。加/删/改/排序字段都在这里。
+// D5 起：从后端加载已有表单(initialSchema)，点 Save 通过 onSave 存回后端；
+// 有配置问题(空标题/矛盾规则…)时禁止保存。
 // ============================================================================
 
 import { useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { arrayMove } from '@dnd-kit/sortable';
 import type {
   FieldType,
   FormField,
   FormSchemaDefinition,
 } from '../types/form-schema';
-import type { SubjectKind } from './subject';
+import type { DataItem, SubjectKind } from './subject';
 import { createField } from './fieldFactory';
+import { schemaIssueCount } from './fieldIssues';
 import { FieldPalette } from './FieldPalette';
 import { SubjectPreview } from './SubjectPreview';
 import { DesignerCanvas } from './DesignerCanvas';
 import { SchemaPreview } from './SchemaPreview';
 import { FormPreview } from './FormPreview';
+import { ReleaseModal } from './ReleaseModal';
 import './FormDesigner.css';
 
-const SAMPLE_SENTENCE =
-  'The restaurant had a great atmosphere and friendly staff, but the food took nearly an hour to arrive.';
+interface Props {
+  taskTitle: string;
+  initialSchema: FormSchemaDefinition | null;
+  onSave: (schema: FormSchemaDefinition) => Promise<void>;
+}
 
-export function FormDesigner() {
-  const [title, setTitle] = useState('Untitled form');
-  const [fields, setFields] = useState<FormField[]>([]);
+// 生成初始序号：从已有字段 id(field_N) 里取最大 N，续着往下发，避免 id 撞车。
+function initialSeq(fields: FormField[]): number {
+  let max = 0;
+  for (const f of fields) {
+    const m = /(\d+)$/.exec(f.id);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return max;
+}
+
+export function FormDesigner({ taskTitle, initialSchema, onSave }: Props) {
+  const [title, setTitle] = useState(initialSchema?.title ?? 'Untitled form');
+  const [fields, setFields] = useState<FormField[]>(
+    initialSchema?.fields ?? [],
+  );
   const [showDevView, setShowDevView] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-  // 标注对象状态提到这里：中栏和预览弹窗共享同一份
   const [subjectKind, setSubjectKind] = useState<SubjectKind>('image');
-  const [subjectText, setSubjectText] = useState(SAMPLE_SENTENCE);
-  const seq = useRef(0);
+  const [items, setItems] = useState<DataItem[]>([]); // 上传的待标注数据(前端本地)
+  const seq = useRef(initialSeq(initialSchema?.fields ?? []));
 
-  // 加字段：造新字段追加([...prev, x] 造新数组，React 才重画)。
+  // 保存相关状态
+  const [saving, setSaving] = useState(false);
+  const [savedMsg, setSavedMsg] = useState('');
+  const [saveError, setSaveError] = useState('');
+
+  // 发布相关(前端 mock)
+  const [showRelease, setShowRelease] = useState(false);
+  const [released, setReleased] = useState(false);
+
+  function addItems(added: DataItem[]) {
+    setItems((prev) => [...prev, ...added]);
+  }
+  function removeItem(id: string) {
+    setItems((prev) => prev.filter((it) => it.id !== id));
+  }
+
   function handleAdd(type: FieldType) {
     seq.current += 1;
     setFields((prev) => [...prev, createField(type, seq.current)]);
   }
-
-  // 删字段：过滤掉 id 匹配的那一项。
   function handleRemove(id: string) {
     setFields((prev) => prev.filter((f) => f.id !== id));
   }
-
-  // 改字段：找到 id 那一项，用传入的 updater 造新字段替换(其余不动)。内联编辑走这里。
   function updateField(id: string, updater: (f: FormField) => FormField) {
     setFields((prev) => prev.map((f) => (f.id === id ? updater(f) : f)));
   }
-
-  // 拖拽排序：把 activeId 那项移动到 overId 的位置。
-  // arrayMove 是 dnd-kit 提供的辅助函数，返回换好序的【新数组】(仍是不可变更新)。
   function reorderFields(activeId: string, overId: string) {
     setFields((prev) => {
       const from = prev.findIndex((f) => f.id === activeId);
@@ -65,14 +89,41 @@ export function FormDesigner() {
 
   const schema: FormSchemaDefinition = { version: 1, title, fields };
 
+  // 保存前的闸门：没字段 或 有配置问题 → 不能保存。
+  const issues = schemaIssueCount(fields);
+  const canSave = fields.length > 0 && issues === 0 && !saving;
+
+  // 当前类型的数据 + 一条样例(给预览用)
+  const shownItems = items.filter((it) => it.kind === subjectKind);
+  const itemCount = shownItems.length;
+  const sampleItem = shownItems[0];
+  const canRelease = fields.length > 0 && issues === 0;
+
+  async function handleSave() {
+    if (fields.length === 0 || issues > 0 || saving) return;
+    setSaving(true);
+    setSaveError('');
+    setSavedMsg('');
+    try {
+      await onSave(schema);
+      setSavedMsg('Saved ✓');
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="designer">
       <header className="designer__topbar">
         <div className="brand">
-          <span className="brand__logo">🏷️</span>
+          <Link className="brand__home" to="/" title="Back to tasks">
+            🏷️
+          </Link>
           <span className="brand__name">LabelHub</span>
           <span className="brand__sep">/</span>
-          <span className="brand__page">Form Designer</span>
+          <span className="brand__page">{taskTitle || 'Form Designer'}</span>
         </div>
 
         <input
@@ -83,8 +134,16 @@ export function FormDesigner() {
         />
 
         <div className="topbar__right">
+          {issues > 0 && (
+            <span className="designer__issues">
+              {issues} issue{issues > 1 ? 's' : ''} to fix
+            </span>
+          )}
+          {savedMsg && <span className="designer__saved">{savedMsg}</span>}
+          {saveError && <span className="designer__saveerr">{saveError}</span>}
+          {released && <span className="designer__released">● Released</span>}
           <span className="designer__count">{fields.length} fields</span>
-          <button className="previewbtn" onClick={() => setShowPreview(true)}>
+          <button className="ghostbtn" onClick={() => setShowPreview(true)}>
             👁 Preview
           </button>
           <button
@@ -94,20 +153,44 @@ export function FormDesigner() {
           >
             &lt;/&gt; Dev view
           </button>
+          <button
+            className="previewbtn"
+            onClick={handleSave}
+            disabled={!canSave}
+            title={
+              issues > 0
+                ? 'Fix the highlighted issues first'
+                : fields.length === 0
+                  ? 'Add at least one field'
+                  : 'Save this form'
+            }
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button
+            className="releasebtn"
+            onClick={() => setShowRelease(true)}
+            disabled={!canRelease}
+            title={
+              canRelease
+                ? 'Release this task to annotators'
+                : 'Add fields and fix issues first'
+            }
+          >
+            {released ? 'Re-release' : 'Release'}
+          </button>
         </div>
       </header>
 
       <div className="designer__body">
-        {/* 左：加字段 */}
         <FieldPalette onAdd={handleAdd} />
-        {/* 中：标注对象(参考素材，帮负责人判断要哪些字段) */}
         <SubjectPreview
           kind={subjectKind}
-          text={subjectText}
+          items={items}
           onKindChange={setSubjectKind}
-          onTextChange={setSubjectText}
+          onAddItems={addItems}
+          onRemoveItem={removeItem}
         />
-        {/* 右：标注表单(在这搭) */}
         <DesignerCanvas
           fields={fields}
           onUpdate={updateField}
@@ -116,16 +199,27 @@ export function FormDesigner() {
         />
       </div>
 
-      {/* 开发者视图：JSON 从右侧滑出的抽屉 */}
       {showDevView && <SchemaPreview schema={schema} />}
 
-      {/* 预览弹窗：标注员将看到的真实表单 */}
       {showPreview && (
         <FormPreview
           schema={schema}
           subjectKind={subjectKind}
-          subjectText={subjectText}
+          sampleItem={sampleItem}
           onClose={() => setShowPreview(false)}
+        />
+      )}
+
+      {showRelease && (
+        <ReleaseModal
+          formTitle={title}
+          fieldCount={fields.length}
+          itemCount={itemCount}
+          onConfirm={() => {
+            setReleased(true);
+            setShowRelease(false);
+          }}
+          onClose={() => setShowRelease(false)}
         />
       )}
     </div>

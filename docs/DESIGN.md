@@ -229,12 +229,22 @@ AI预审中(AI_REVIEWING)
   - 验证：`npm run build` 通过；dev :5173 —— 设计器配规则→JSON 落 `validation`；预览提交触发 required/长度/范围/正则报错、改对即消、全过才出结果 JSON。
   - **待补**：`react-hook-form` 未用(手写足够且更好教)；渲染器目前仅在预览里用，D5 接工作台。
 
-### Day 5 — 打通闭环 + 联调 + 收尾
+### Day 5 — 打通闭环 + 联调 + 收尾 ✅（已完成）
 - **做什么**：把三段接起来——设计器"保存"→ 调 Day1 的接口把 Schema 存库；做一个"标注工作台"页面按 `taskId` 从后端**拉 Schema** → 交给 `<FormRenderer>` 渲染 → 填写并"提交"收集结果 JSON(先本地打印/或存 Annotation)。端到端联调 + git 提交 + 更新本设计文档。
 - **为什么**：单点都通不等于闭环通。走一遍"设计→存→取→渲染→提交"证明数据契约在真实链路里对得上，才算完成本周里程碑；周末收尾留干净 commit。
 - **产出**：设计器存的表单，工作台能原样渲染出来并填写提交；Week 2 的若干 commit；DESIGN.md 更新实际产出。
 - **学到**：前后端联调(fetch/axios + 错误处理)、一份数据契约贯穿多个页面/服务的全链路视角。
 - **自己试试**：在设计器里改表单再保存，刷新工作台，确认渲染出的是新版本。
+- **实际产出**（✅ 完成，闭环真跑通）：
+  - **后端**：`main.ts` 开 `enableCors({origin:['http://localhost:5173']})`(跨源前提)；新 `tasks` 模块 —— `POST /tasks`(建，仅 TASK_OWNER) + `GET /tasks`(列出，带 `hasForm`)。demo 账号 `owner@demo.com`/`annotator@demo.com`(密码 `demo1234`)。
+  - **前端路由**(react-router)：`/login`、`/`(首页任务列表)、`/tasks/:id/design`、`/tasks/:id/annotate`；`RequireAuth` 无 token 重定向登录。
+  - **API 层** `api.ts`：token 存 localStorage，请求自动带 `Authorization`；`ApiError` 带状态码(404=还没配表单)。
+  - **登录页/首页/工作台**：登录拿 token；首页建任务/列任务(按角色显示 Design/Annotate)；工作台 `GET` 取表单 → `<FormRenderer>` 渲染 → 提交本地显示结果。
+  - **设计器接后端**：`DesignerPage` 按 taskId `GET` 已有表单(404 从空白开始) → `FormDesigner` 加 **Save**(PUT) + **保存闸**(`fieldIssues`/`schemaIssueCount`：空标题/空选项/Min>Max 等有问题禁止保存)。
+  - **角色分离**：owner 只 Design(用 Preview 自测)、annotator 只 Annotate；真正按人/按数据项分发留 W3。
+  - **前端 mock（不接后端，W3 再接）**：中栏"Data to label"支持**四类型上传**(图/音/视传文件本地预览、文本传 .txt 或粘贴)，`DataItem` + `URL.createObjectURL`；顶栏 **Release** 按钮 + 发布确认弹窗(本地标记 Released)。工作台标注主体也占位待 W3 真数据。
+  - 端到端验证：CORS 放行(含 POST 预检)；owner 登录→建任务→设计→Save(PUT 200)→GET 取回一致→`hasForm` 变 true；annotator 登录→Annotate→渲染→提交出结果 JSON；越权 403。
+  - **待续(W3)**：上传真存储 + 生成 Annotation 待标注项 + Task 状态/发布分发 + 标注结果入库(状态机)。
 
 > **本周完成标志**：能在设计器里拖拽搭出一张带校验的表单 → 存进数据库 → 工作台从库里读出并动态渲染成可填写可校验的真实表单 → 提交拿到结果 JSON。难度三件套 #1(schema-driven UI) 落地，为 W3 工作流(把提交结果推入状态机)铺好路。
 
@@ -286,6 +296,6 @@ AI预审中(AI_REVIEWING)
 - [x] **W2-2（Day 2）**：前端设计器三栏骨架(字段面板 / 画布 / JSON 预览)，点击添加/删除字段 + JSON 实时预览；React 状态提升 + 列表渲染 + 不可变更新。build 通过。
 - [x] **W2-3（Day 3）**：拖拽排序(dnd-kit `useSortable`+`DndContext`+`arrayMove`，带抓手)；配置面板已在 D2 内联实现。
 - [x] **W2-4（Day 4）**：独立渲染器 `<FormRenderer>` + schema 驱动运行时校验(手写受控，未用 react-hook-form)；设计器加校验规则配置 + 配置语义自查(Min>Max/空标题/空选项标红)。
-- [ ] **W2-5（Day 5）**：打通闭环(设计器存 → 工作台按 taskId 取并渲染 → 填写提交) + 联调 + commit
+- [x] **W2-5（Day 5）**：打通闭环 ✅ —— 后端 CORS + tasks 接口；前端路由/登录/首页/工作台；设计器 Save(PUT)+保存闸；角色分离。前端 mock：四类型上传 + Release 弹窗(W3 接真后端)。**Week 2 完工，schema-driven UI 落地。**
 
 > 本文件为"活文档"，每完成一个里程碑就更新。

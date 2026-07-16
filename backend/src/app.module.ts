@@ -6,6 +6,7 @@ import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { FormSchemaModule } from './form-schema/form-schema.module';
+import { TasksModule } from './tasks/tasks.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { FormSchemaModule } from './form-schema/form-schema.module';
     HealthModule,
     AuthModule, // ← Day4 新增
     FormSchemaModule, // ← W2-1 新增：表单 Schema 存取
+    TasksModule, // ← D5 新增：任务最小存取
   ],
   controllers: [AppController],
   providers: [AppService],

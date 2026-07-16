@@ -1,28 +1,66 @@
 // ============================================================================
-// SubjectPreview —— 中栏"标注对象"预览
+// SubjectPreview（数据面板）—— 中栏"上传待标注数据"
 // ----------------------------------------------------------------------------
-// 摆出"将要被标注的东西"的样例(图/文/音/视)，让负责人对着真实内容判断该加哪些字段。
-// 状态由上层(FormDesigner)持有，好让"预览弹窗"也能共享同一份。
+// 四种类型都能上传：图片/音频/视频 传文件(本地预览)，文本传 .txt 或直接粘贴。
+// 纯前端：媒体用 URL.createObjectURL 本地预览，文本读成字符串；都不进后端(W3 才真存)。
 // ============================================================================
 
-import type { SubjectKind } from './subject';
-import { SUBJECT_KINDS } from './subject';
-import { SubjectMedia } from './SubjectMedia';
+import { useState } from 'react';
+import type { ChangeEvent } from 'react';
+import type { DataItem, SubjectKind } from './subject';
+import { ACCEPT, SUBJECT_KINDS } from './subject';
 
 interface Props {
   kind: SubjectKind;
-  text: string;
+  items: DataItem[];
   onKindChange: (kind: SubjectKind) => void;
-  onTextChange: (text: string) => void;
+  onAddItems: (added: DataItem[]) => void;
+  onRemoveItem: (id: string) => void;
 }
 
-export function SubjectPreview({ kind, text, onKindChange, onTextChange }: Props) {
+export function SubjectPreview({
+  kind,
+  items,
+  onKindChange,
+  onAddItems,
+  onRemoveItem,
+}: Props) {
+  const [draft, setDraft] = useState(''); // 文本快捷粘贴
+  const shown = items.filter((it) => it.kind === kind); // 当前类型的数据
+
+  async function handleFiles(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    const added: DataItem[] = [];
+    for (const f of files) {
+      if (kind === 'text') {
+        added.push({ id: crypto.randomUUID(), name: f.name, kind, text: await f.text() });
+      } else {
+        added.push({
+          id: crypto.randomUUID(),
+          name: f.name,
+          kind,
+          url: URL.createObjectURL(f),
+        });
+      }
+    }
+    onAddItems(added);
+    e.target.value = '';
+  }
+
+  function addPastedText() {
+    if (!draft.trim()) return;
+    onAddItems([
+      { id: crypto.randomUUID(), name: 'pasted text', kind: 'text', text: draft.trim() },
+    ]);
+    setDraft('');
+  }
+
   return (
     <section className="subject">
       <div className="subject__head">
-        <h2 className="subject__title">Item to label</h2>
+        <h2 className="subject__title">Data to label</h2>
         <p className="subject__hint">
-          What annotators see — use it to decide which fields you need
+          Upload the items annotators will label · design the form against them
         </p>
       </div>
 
@@ -38,18 +76,81 @@ export function SubjectPreview({ kind, text, onKindChange, onTextChange }: Props
         ))}
       </div>
 
-      <div className="subject__stage">
-        {kind === 'text' ? (
+      {/* 文本类：额外给一个"粘贴即添加" */}
+      {kind === 'text' && (
+        <div className="textadd">
           <textarea
-            className="subject__text"
-            value={text}
-            onChange={(e) => onTextChange(e.target.value)}
-            placeholder="Paste a sample text to label…"
+            className="textadd__input"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Paste a text sample…"
           />
-        ) : (
-          <SubjectMedia kind={kind} />
-        )}
-      </div>
+          <button
+            className="ghostbtn"
+            onClick={addPastedText}
+            disabled={!draft.trim()}
+          >
+            Add text
+          </button>
+        </div>
+      )}
+
+      {/* 上传按钮(四种通用) */}
+      <label className="uploadbtn">
+        ⬆️ Upload {kind}
+        <input
+          type="file"
+          accept={ACCEPT[kind]}
+          multiple
+          hidden
+          onChange={handleFiles}
+        />
+      </label>
+
+      {/* 数据列表 */}
+      {shown.length === 0 ? (
+        <p className="subject__empty">No {kind} items yet.</p>
+      ) : (
+        <div className={kind === 'image' ? 'gallery' : 'itemlist'}>
+          {shown.map((it) => (
+            <ItemCard key={it.id} item={it} onRemove={() => onRemoveItem(it.id)} />
+          ))}
+        </div>
+      )}
+      {shown.length > 0 && (
+        <p className="subject__hint">
+          {shown.length} {kind} item{shown.length > 1 ? 's' : ''}
+        </p>
+      )}
     </section>
+  );
+}
+
+// 一条数据的预览卡片，按类型渲染。
+function ItemCard({ item, onRemove }: { item: DataItem; onRemove: () => void }) {
+  if (item.kind === 'image') {
+    return (
+      <div className="thumb">
+        <img src={item.url} alt={item.name} />
+        <button className="thumb__del" title="Remove" onClick={onRemove}>
+          ✕
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="item">
+      <div className="item__media">
+        {item.kind === 'audio' && <audio src={item.url} controls />}
+        {item.kind === 'video' && <video src={item.url} controls />}
+        {item.kind === 'text' && <p className="item__text">{item.text}</p>}
+      </div>
+      <div className="item__foot">
+        <span className="item__name">{item.name}</span>
+        <button className="item__del" title="Remove" onClick={onRemove}>
+          ✕
+        </button>
+      </div>
+    </div>
   );
 }

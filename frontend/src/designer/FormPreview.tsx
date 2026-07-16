@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import type { FormSchemaDefinition } from '../types/form-schema';
-import type { SubjectKind } from './subject';
+import type { DataItem, SubjectKind } from './subject';
 import { SubjectMedia } from './SubjectMedia';
 import { FormRenderer } from './FormRenderer';
 import type { Answers } from './FormRenderer';
@@ -15,11 +15,11 @@ import type { Answers } from './FormRenderer';
 interface Props {
   schema: FormSchemaDefinition;
   subjectKind: SubjectKind;
-  subjectText: string;
+  sampleItem?: DataItem;
   onClose: () => void;
 }
 
-export function FormPreview({ schema, subjectKind, subjectText, onClose }: Props) {
+export function FormPreview({ schema, subjectKind, sampleItem, onClose }: Props) {
   const [result, setResult] = useState<Answers | null>(null);
 
   return (
@@ -36,10 +36,22 @@ export function FormPreview({ schema, subjectKind, subjectText, onClose }: Props
         </div>
 
         <div className="pvmodal__body">
-          {/* 标注对象 */}
+          {/* 标注对象：有上传的样例就按类型显示真数据，否则占位 */}
           <div className="pv__subject">
-            {subjectKind === 'text' ? (
-              <p className="pv__stext">{subjectText}</p>
+            {sampleItem ? (
+              sampleItem.kind === 'text' ? (
+                <p className="pv__stext">{sampleItem.text}</p>
+              ) : sampleItem.kind === 'image' ? (
+                <img className="pv__image-real" src={sampleItem.url} alt="item" />
+              ) : sampleItem.kind === 'audio' ? (
+                <audio className="pv__media" src={sampleItem.url} controls />
+              ) : (
+                <video className="pv__media" src={sampleItem.url} controls />
+              )
+            ) : subjectKind === 'text' ? (
+              <p className="pv__stext pv__stext--empty">
+                No sample uploaded yet
+              </p>
             ) : (
               <SubjectMedia kind={subjectKind} />
             )}
