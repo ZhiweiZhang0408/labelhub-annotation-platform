@@ -271,6 +271,11 @@
 - **产出**：owner 上传 N 条数据 → 库里多 N 条 `Annotation(PENDING)`；点 Release → 任务 PUBLISHED；前端上传/发布从 mock 切到真 API。
 - **学到**：文件上传(multipart)与存储取舍、把"一批数据"炸开成"一条条待标注项"、发布=状态门槛。
 - **自己试试**：上传 3 张图，去 Prisma Studio 看是否多了 3 条 PENDING 的 Annotation。
+- **实际产出**（✅ 完成）：
+  - **存储取舍**：媒体以 **base64 data URL 存进 `Annotation.payload`(JSONB)**，不搭独立文件服务(聚焦工作流；生产用 S3+URL)。`main.ts` 放大 body 上限到 25mb。
+  - 后端 `tasks`：`POST /tasks/:id/items`(仅 TASK_OWNER，`CreateItemsDto` 校验，为每条数据 `createMany` 一条 `Annotation(PENDING, payload=item)`) + `POST /tasks/:id/release`(仅 owner；**要求已配表单 + ≥1 条数据**否则 400 → 置 `status=PUBLISHED`)。`listAll` 带出 `plan`/`status`/`itemCount`。建任务 `CreateTaskDto` 已支持选 `plan`。
+  - 前端：`api.ts` 加 `createTask(plan)`/`createItems`/`releaseTask`；`SubjectPreview` 媒体改 `readAsDataURL`(base64)；首页建任务加**方案下拉**、任务行显示方案/状态/条数、**Annotate 限已发布**；`ReleaseModal` + `DesignerPage.handleRelease` 把 Release 接真(保存表单→上传数据→发布)，带忙碌/错误态。
+  - 端到端验证(curl)：建任务(HUMAN_ONLY)→配表单→无数据 release 被 400 拦→上传 3 条(2 文本+1 base64 图)→release 200 PUBLISHED→库内 3 条 PENDING(kind/name 正确)→标注员越权上传 403。前端 build 通过。
 
 ### Day 3 — 标注员：领取 + 标注 + 提交（真数据 + 真流转）
 - **做什么**：标注员端接真——列出已发布任务的待标注项；**领取**一条(PENDING→IN_PROGRESS，写 `annotatorId`)；工作台展示**真实标注对象**(payload 里的图/文/音/视) + 表单(复用 `FormRenderer`)；提交 → 结果存进 `Annotation.result`，状态 IN_PROGRESS→SUBMITTED(过 D1 的状态机)。
@@ -346,7 +351,7 @@
 - [x] **W2-4（Day 4）**：独立渲染器 `<FormRenderer>` + schema 驱动运行时校验(手写受控，未用 react-hook-form)；设计器加校验规则配置 + 配置语义自查(Min>Max/空标题/空选项标红)。
 - [x] **W2-5（Day 5）**：打通闭环 ✅ —— 后端 CORS + tasks 接口；前端路由/登录/首页/工作台；设计器 Save(PUT)+保存闸；角色分离。前端 mock：四类型上传 + Release 弹窗(W3 接真后端)。**Week 2 完工，schema-driven UI 落地。**
 - [x] **W3-1（Day 1）**：显式状态机(`TRANSITIONS` 转移表 + `checkTransition` + `WorkflowService.apply`，非法→400/越权→403) + Task status(DRAFT/PUBLISHED) migration + 10 单测全绿
-- [ ] **W3-2（Day 2）**：数据上传接口(存储) → 批量生成 Annotation(PENDING) + Release 真发布(Task→PUBLISHED)；前端上传/发布切真 API
+- [x] **W3-2（Day 2）**：`POST /tasks/:id/items`(生成 Annotation PENDING，媒体 base64 进 payload) + `POST /tasks/:id/release`(要求表单+数据 → PUBLISHED)；前端建任务选方案 + 上传/发布切真 API + Annotate 限已发布。端到端验证过。
 - [ ] **W3-3（Day 3）**：标注员领取(PENDING→IN_PROGRESS)+ 工作台展示真数据 + 提交(result 入库, →SUBMITTED)
 - [ ] **W3-4（Day 4）**：AI 预审(mock, 写 Review type=AI + 建议) + 审核台(通过→APPROVED / 打回→IN_PROGRESS, Review type=HUMAN)
 - [ ] **W3-5（Day 5）**：owner 进度台(按状态统计) + 全链路端到端联调(含打回回路) + commit

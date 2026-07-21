@@ -162,6 +162,19 @@
 .home__create-input:focus {
   border-color: var(--accent-border);
 }
+.home__create-plan {
+  font-size: 14px;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 10px;
+  outline: none;
+  cursor: pointer;
+}
+.home__create-plan:focus {
+  border-color: var(--accent-border);
+}
 .home__muted {
   color: var(--text);
   font-size: 14px;
@@ -198,6 +211,13 @@
   font-size: 15px;
   font-weight: 500;
   color: var(--text-h);
+}
+.taskrow__plan {
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  padding: 2px 8px;
+  border-radius: 6px;
 }
 .taskrow__badge {
   font-size: 11px;

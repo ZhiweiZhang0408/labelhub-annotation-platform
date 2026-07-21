@@ -68,12 +68,25 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
+export type WorkflowPlan = 'AI_PLUS_HUMAN' | 'HUMAN_ONLY' | 'AI_ONLY';
+
 export interface TaskSummary {
   id: string;
   title: string;
   description: string | null;
+  plan: WorkflowPlan;
+  status: 'DRAFT' | 'PUBLISHED';
   createdAt: string;
   hasForm: boolean;
+  itemCount: number;
+}
+
+// 一条待标注数据(发给后端存进 Annotation.payload)
+export interface ItemPayload {
+  kind: string;
+  name: string;
+  url?: string; // 媒体：base64 data URL
+  text?: string; // 文本
 }
 
 export interface FormSchemaRow {
@@ -91,11 +104,18 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
   listTasks: () => req<TaskSummary[]>('/tasks'),
-  createTask: (title: string, description?: string) =>
+  createTask: (title: string, plan?: WorkflowPlan) =>
     req<{ id: string }>('/tasks', {
       method: 'POST',
-      body: JSON.stringify({ title, description }),
+      body: JSON.stringify({ title, ...(plan ? { plan } : {}) }),
     }),
+  createItems: (taskId: string, items: ItemPayload[]) =>
+    req<{ created: number }>(`/tasks/${taskId}/items`, {
+      method: 'POST',
+      body: JSON.stringify({ items }),
+    }),
+  releaseTask: (taskId: string) =>
+    req<TaskSummary>(`/tasks/${taskId}/release`, { method: 'POST' }),
   getFormSchema: (taskId: string) =>
     req<FormSchemaRow>(`/tasks/${taskId}/form-schema`),
   putFormSchema: (taskId: string, schema: FormSchemaDefinition) =>

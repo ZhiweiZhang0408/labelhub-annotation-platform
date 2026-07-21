@@ -1,9 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // 放大请求体上限：上传的图片以 base64 塞在 JSON 里，默认 100kb 不够。
+  // (演示做法；生产用对象存储/S3 存文件、库里只存 URL)
+  app.use(json({ limit: '25mb' }));
+  app.use(urlencoded({ extended: true, limit: '25mb' }));
 
   // 开启 CORS：前端(:5173)和后端(:3000)不同源，浏览器默认拦跨源请求。
   // 允许前端 dev 地址访问，并放行带 Authorization 头的请求。

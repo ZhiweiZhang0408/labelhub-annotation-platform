@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ApiError, api } from '../api';
 import type { FormSchemaDefinition } from '../types/form-schema';
+import type { DataItem } from '../designer/subject';
 import { FormDesigner } from '../designer/FormDesigner';
 
 // 设计器页：按 taskId 加载已有表单(若有) → 交给 FormDesigner；保存时 PUT 回后端。
@@ -46,6 +47,23 @@ export function DesignerPage() {
     await api.putFormSchema(taskId!, schema);
   }
 
+  // 发布：保存表单 → 上传数据(炸成待标注项) → 置 PUBLISHED
+  async function handleRelease(schema: FormSchemaDefinition, items: DataItem[]) {
+    await api.putFormSchema(taskId!, schema);
+    if (items.length > 0) {
+      await api.createItems(
+        taskId!,
+        items.map((it) => ({
+          kind: it.kind,
+          name: it.name,
+          url: it.url,
+          text: it.text,
+        })),
+      );
+    }
+    await api.releaseTask(taskId!);
+  }
+
   if (status === 'loading') return <div className="page-center">Loading…</div>;
   if (status === 'error')
     return <div className="page-center">Error: {errMsg}</div>;
@@ -55,6 +73,7 @@ export function DesignerPage() {
       taskTitle={taskTitle}
       initialSchema={initial}
       onSave={handleSave}
+      onRelease={handleRelease}
     />
   );
 }

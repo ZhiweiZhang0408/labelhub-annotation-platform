@@ -29,6 +29,8 @@ interface Props {
   taskTitle: string;
   initialSchema: FormSchemaDefinition | null;
   onSave: (schema: FormSchemaDefinition) => Promise<void>;
+  // 发布：保存表单 + 上传数据 + 置 PUBLISHED（由页面接后端）
+  onRelease: (schema: FormSchemaDefinition, items: DataItem[]) => Promise<void>;
 }
 
 // 生成初始序号：从已有字段 id(field_N) 里取最大 N，续着往下发，避免 id 撞车。
@@ -41,7 +43,12 @@ function initialSeq(fields: FormField[]): number {
   return max;
 }
 
-export function FormDesigner({ taskTitle, initialSchema, onSave }: Props) {
+export function FormDesigner({
+  taskTitle,
+  initialSchema,
+  onSave,
+  onRelease,
+}: Props) {
   const [title, setTitle] = useState(initialSchema?.title ?? 'Untitled form');
   const [fields, setFields] = useState<FormField[]>(
     initialSchema?.fields ?? [],
@@ -57,9 +64,25 @@ export function FormDesigner({ taskTitle, initialSchema, onSave }: Props) {
   const [savedMsg, setSavedMsg] = useState('');
   const [saveError, setSaveError] = useState('');
 
-  // 发布相关(前端 mock)
+  // 发布相关
   const [showRelease, setShowRelease] = useState(false);
   const [released, setReleased] = useState(false);
+  const [releasing, setReleasing] = useState(false);
+  const [releaseError, setReleaseError] = useState('');
+
+  async function handleReleaseConfirm() {
+    setReleasing(true);
+    setReleaseError('');
+    try {
+      await onRelease(schema, items); // 保存表单 + 上传数据 + 发布
+      setReleased(true);
+      setShowRelease(false);
+    } catch (e) {
+      setReleaseError(e instanceof Error ? e.message : 'Release failed');
+    } finally {
+      setReleasing(false);
+    }
+  }
 
   function addItems(added: DataItem[]) {
     setItems((prev) => [...prev, ...added]);
@@ -215,10 +238,9 @@ export function FormDesigner({ taskTitle, initialSchema, onSave }: Props) {
           formTitle={title}
           fieldCount={fields.length}
           itemCount={itemCount}
-          onConfirm={() => {
-            setReleased(true);
-            setShowRelease(false);
-          }}
+          busy={releasing}
+          error={releaseError}
+          onConfirm={handleReleaseConfirm}
           onClose={() => setShowRelease(false)}
         />
       )}

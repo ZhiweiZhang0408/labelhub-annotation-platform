@@ -9,6 +9,8 @@ interface Props {
   formTitle: string;
   fieldCount: number;
   itemCount: number;
+  busy?: boolean;
+  error?: string;
   onConfirm: () => void;
   onClose: () => void;
 }
@@ -17,6 +19,8 @@ export function ReleaseModal({
   formTitle,
   fieldCount,
   itemCount,
+  busy,
+  error,
   onConfirm,
   onClose,
 }: Props) {
@@ -44,16 +48,19 @@ export function ReleaseModal({
         </ul>
 
         <p className="release__note">
-          Demo: this only marks the task released locally. Real distribution
-          (task status, per-annotator assignment, per-item queue) comes in Week 3.
+          Saves the form, uploads the {itemCount} data item
+          {itemCount === 1 ? '' : 's'} as annotation tasks, and marks this task
+          published so annotators can start.
         </p>
 
+        {error && <p className="release__error">{error}</p>}
+
         <div className="release__actions">
-          <button className="ghostbtn" onClick={onClose}>
+          <button className="ghostbtn" onClick={onClose} disabled={busy}>
             Cancel
           </button>
-          <button className="releasebtn" onClick={onConfirm}>
-            Confirm release
+          <button className="releasebtn" onClick={onConfirm} disabled={busy}>
+            {busy ? 'Releasing…' : 'Confirm release'}
           </button>
         </div>
       </div>

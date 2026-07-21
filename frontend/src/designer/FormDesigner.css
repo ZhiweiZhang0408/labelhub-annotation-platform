@@ -602,10 +602,20 @@
   line-height: 1.5;
   margin: 0 0 18px;
 }
+.release__error {
+  font-size: 13px;
+  color: #e5484d;
+  margin: 0 0 12px;
+}
 .release__actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+.releasebtn:disabled,
+.release__actions .ghostbtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* 预览里真实上传的图 */

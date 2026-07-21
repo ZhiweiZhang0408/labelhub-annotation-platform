@@ -10,6 +10,16 @@ import type { ChangeEvent } from 'react';
 import type { DataItem, SubjectKind } from './subject';
 import { ACCEPT, SUBJECT_KINDS } from './subject';
 
+// 把文件读成 base64 data URL
+function readAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
 interface Props {
   kind: SubjectKind;
   items: DataItem[];
@@ -35,11 +45,12 @@ export function SubjectPreview({
       if (kind === 'text') {
         added.push({ id: crypto.randomUUID(), name: f.name, kind, text: await f.text() });
       } else {
+        // 读成 base64 data URL：既能本地预览(<img src>)，又能直接发给后端存库
         added.push({
           id: crypto.randomUUID(),
           name: f.name,
           kind,
-          url: URL.createObjectURL(f),
+          url: await readAsDataURL(f),
         });
       }
     }

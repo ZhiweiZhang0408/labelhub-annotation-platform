@@ -2,7 +2,14 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, clearSession, getUser } from '../api';
-import type { TaskSummary } from '../api';
+import type { TaskSummary, WorkflowPlan } from '../api';
+
+// 三种方案的显示名
+const PLAN_LABEL: Record<WorkflowPlan, string> = {
+  AI_PLUS_HUMAN: 'AI + human review',
+  HUMAN_ONLY: 'Human only',
+  AI_ONLY: 'AI only',
+};
 
 // 首页：列出任务；负责人可建任务、去设计器；任何人可去工作台标注。
 export function HomePage() {
@@ -13,6 +20,7 @@ export function HomePage() {
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTitle, setNewTitle] = useState('');
+  const [newPlan, setNewPlan] = useState<WorkflowPlan>('AI_PLUS_HUMAN');
   const [error, setError] = useState('');
 
   async function load() {
@@ -36,7 +44,7 @@ export function HomePage() {
       return;
     }
     try {
-      const { id } = await api.createTask(newTitle.trim());
+      const { id } = await api.createTask(newTitle.trim(), newPlan);
       nav(`/tasks/${id}/design`); // 建完直接进设计器
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Create failed');
@@ -75,6 +83,16 @@ export function HomePage() {
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
             />
+            <select
+              className="home__create-plan"
+              value={newPlan}
+              onChange={(e) => setNewPlan(e.target.value as WorkflowPlan)}
+              title="Annotation plan"
+            >
+              <option value="AI_PLUS_HUMAN">{PLAN_LABEL.AI_PLUS_HUMAN}</option>
+              <option value="HUMAN_ONLY">{PLAN_LABEL.HUMAN_ONLY}</option>
+              <option value="AI_ONLY">{PLAN_LABEL.AI_ONLY}</option>
+            </select>
             <button
               className="btn-primary"
               type="submit"
@@ -96,10 +114,15 @@ export function HomePage() {
               <li key={t.id} className="taskrow">
                 <div className="taskrow__main">
                   <span className="taskrow__title">{t.title}</span>
+                  <span className="taskrow__plan">{PLAN_LABEL[t.plan]}</span>
                   <span
-                    className={`taskrow__badge${t.hasForm ? ' is-on' : ''}`}
+                    className={`taskrow__badge${
+                      t.status === 'PUBLISHED' ? ' is-on' : ''
+                    }`}
                   >
-                    {t.hasForm ? 'form ready' : 'no form'}
+                    {t.status === 'PUBLISHED'
+                      ? `published · ${t.itemCount} items`
+                      : 'draft'}
                   </span>
                 </div>
                 <div className="taskrow__actions">
@@ -109,9 +132,9 @@ export function HomePage() {
                       Design
                     </Link>
                   )}
-                  {/* 标注员：只能标注，且需已配表单 */}
+                  {/* 标注员：只能标注已发布的任务 */}
                   {user?.role === 'ANNOTATOR' &&
-                    (t.hasForm ? (
+                    (t.status === 'PUBLISHED' ? (
                       <Link
                         className="linkbtn"
                         to={`/tasks/${t.id}/annotate`}
