@@ -75,7 +75,7 @@ export interface TaskSummary {
   title: string;
   description: string | null;
   plan: WorkflowPlan;
-  status: 'DRAFT' | 'PUBLISHED';
+  status: 'DRAFT' | 'PUBLISHED' | 'COMPLETED';
   createdAt: string;
   hasForm: boolean;
   itemCount: number;

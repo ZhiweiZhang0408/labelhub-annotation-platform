@@ -32,6 +32,21 @@
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
+.backbtn {
+  font-size: 13px;
+  color: var(--text);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+}
+.backbtn:hover {
+  border-color: var(--accent-border);
+  color: var(--text-h);
+  background: var(--accent-bg);
+}
 .brand {
   display: flex;
   align-items: center;

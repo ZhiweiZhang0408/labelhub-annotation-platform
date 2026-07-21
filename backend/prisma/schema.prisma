@@ -48,10 +48,11 @@ enum ReviewDecision {
   REJECTED
 }
 
-// 任务的发布状态（W3）：草稿(设计中) / 已发布(标注员可见可领)
+// 任务的发布状态（W3）：草稿(设计中) / 已发布(标注中) / 已完成(全部数据入库)
 enum TaskStatus {
   DRAFT
   PUBLISHED
+  COMPLETED
 }
 
 // LabelHub 对外提供的三种标注方案（决定这个任务走哪条工作流水线）

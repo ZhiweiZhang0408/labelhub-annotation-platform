@@ -10,6 +10,12 @@ const PLAN_LABEL: Record<WorkflowPlan, string> = {
   HUMAN_ONLY: 'Human only',
   AI_ONLY: 'AI only',
 };
+// 方案一句话说明（建任务弹窗里显示）
+const PLAN_DESC: Record<WorkflowPlan, string> = {
+  AI_PLUS_HUMAN: 'AI labels each item, humans review it.',
+  HUMAN_ONLY: 'Humans label and humans review.',
+  AI_ONLY: 'AI labels and auto-approves — no humans.',
+};
 
 // 首页：列出任务；负责人可建任务、去设计器；任何人可去工作台标注。
 export function HomePage() {
@@ -21,7 +27,23 @@ export function HomePage() {
   const [loading, setLoading] = useState(true);
   const [newTitle, setNewTitle] = useState('');
   const [newPlan, setNewPlan] = useState<WorkflowPlan>('AI_PLUS_HUMAN');
+  const [showCreate, setShowCreate] = useState(false);
+  const [createError, setCreateError] = useState('');
   const [error, setError] = useState('');
+
+  // 筛选（纯前端过滤已加载的列表）
+  const [fText, setFText] = useState('');
+  const [fPlan, setFPlan] = useState<'ALL' | WorkflowPlan>('ALL');
+  const [fStatus, setFStatus] = useState<
+    'ALL' | 'DRAFT' | 'PUBLISHED' | 'COMPLETED'
+  >('ALL');
+
+  const filtered = tasks.filter((t) => {
+    if (fText && !t.title.toLowerCase().includes(fText.toLowerCase())) return false;
+    if (fPlan !== 'ALL' && t.plan !== fPlan) return false;
+    if (fStatus !== 'ALL' && t.status !== fStatus) return false;
+    return true;
+  });
 
   async function load() {
     setLoading(true);
@@ -40,14 +62,14 @@ export function HomePage() {
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
     if (!newTitle.trim()) {
-      setError('Enter a task title first');
+      setCreateError('Enter a task title first');
       return;
     }
     try {
       const { id } = await api.createTask(newTitle.trim(), newPlan);
       nav(`/tasks/${id}/design`); // 建完直接进设计器
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Create failed');
+      setCreateError(e instanceof Error ? e.message : 'Create failed');
     }
   }
 
@@ -73,35 +95,22 @@ export function HomePage() {
       </header>
 
       <main className="home__main">
-        <h1 className="home__h1">Tasks</h1>
-
-        {isOwner && (
-          <form className="home__create" onSubmit={handleCreate}>
-            <input
-              className="home__create-input"
-              placeholder="New task title…"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-            />
-            <select
-              className="home__create-plan"
-              value={newPlan}
-              onChange={(e) => setNewPlan(e.target.value as WorkflowPlan)}
-              title="Annotation plan"
-            >
-              <option value="AI_PLUS_HUMAN">{PLAN_LABEL.AI_PLUS_HUMAN}</option>
-              <option value="HUMAN_ONLY">{PLAN_LABEL.HUMAN_ONLY}</option>
-              <option value="AI_ONLY">{PLAN_LABEL.AI_ONLY}</option>
-            </select>
+        <div className="home__header">
+          <h1 className="home__h1">Tasks</h1>
+          {isOwner && (
             <button
               className="btn-primary"
-              type="submit"
-              disabled={!newTitle.trim()}
+              onClick={() => {
+                setNewTitle('');
+                setNewPlan('AI_PLUS_HUMAN');
+                setCreateError('');
+                setShowCreate(true);
+              }}
             >
               + New task
             </button>
-          </form>
-        )}
+          )}
+        </div>
 
         {error && <p className="home__error">{error}</p>}
         {loading ? (
@@ -109,20 +118,63 @@ export function HomePage() {
         ) : tasks.length === 0 ? (
           <p className="home__muted">No tasks yet.</p>
         ) : (
-          <ul className="tasklist">
-            {tasks.map((t) => (
+          <>
+            <div className="filterbar">
+              <input
+                className="filterbar__search"
+                placeholder="Search tasks…"
+                value={fText}
+                onChange={(e) => setFText(e.target.value)}
+              />
+              <select
+                className="filterbar__sel"
+                value={fPlan}
+                onChange={(e) => setFPlan(e.target.value as 'ALL' | WorkflowPlan)}
+              >
+                <option value="ALL">All plans</option>
+                <option value="AI_PLUS_HUMAN">{PLAN_LABEL.AI_PLUS_HUMAN}</option>
+                <option value="HUMAN_ONLY">{PLAN_LABEL.HUMAN_ONLY}</option>
+                <option value="AI_ONLY">{PLAN_LABEL.AI_ONLY}</option>
+              </select>
+              <select
+                className="filterbar__sel"
+                value={fStatus}
+                onChange={(e) =>
+                  setFStatus(
+                    e.target.value as 'ALL' | 'DRAFT' | 'PUBLISHED' | 'COMPLETED',
+                  )
+                }
+              >
+                <option value="ALL">All status</option>
+                <option value="DRAFT">Draft</option>
+                <option value="PUBLISHED">Published</option>
+                <option value="COMPLETED">Completed</option>
+              </select>
+            </div>
+
+            {filtered.length === 0 ? (
+              <p className="home__muted">No tasks match your filters.</p>
+            ) : (
+              <ul className="tasklist">
+                {filtered.map((t) => (
               <li key={t.id} className="taskrow">
                 <div className="taskrow__main">
                   <span className="taskrow__title">{t.title}</span>
                   <span className="taskrow__plan">{PLAN_LABEL[t.plan]}</span>
                   <span
                     className={`taskrow__badge${
-                      t.status === 'PUBLISHED' ? ' is-on' : ''
+                      t.status === 'PUBLISHED'
+                        ? ' is-on'
+                        : t.status === 'COMPLETED'
+                          ? ' is-done'
+                          : ''
                     }`}
                   >
-                    {t.status === 'PUBLISHED'
-                      ? `published · ${t.itemCount} items`
-                      : 'draft'}
+                    {t.status === 'COMPLETED'
+                      ? `completed · ${t.itemCount} items`
+                      : t.status === 'PUBLISHED'
+                        ? `published · ${t.itemCount} items`
+                        : 'draft'}
                   </span>
                 </div>
                 <div className="taskrow__actions">
@@ -146,10 +198,64 @@ export function HomePage() {
                     ))}
                 </div>
               </li>
-            ))}
-          </ul>
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </main>
+
+      {showCreate && (
+        <div className="modal-mask" onClick={() => setShowCreate(false)}>
+          <form
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={handleCreate}
+          >
+            <h2 className="modal__title">New task</h2>
+
+            <label className="modal__label">Task title</label>
+            <input
+              className="modal__input"
+              placeholder="e.g. Product review sentiment"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              autoFocus
+            />
+
+            <label className="modal__label">Annotation plan</label>
+            <select
+              className="modal__input"
+              value={newPlan}
+              onChange={(e) => setNewPlan(e.target.value as WorkflowPlan)}
+            >
+              <option value="AI_PLUS_HUMAN">{PLAN_LABEL.AI_PLUS_HUMAN}</option>
+              <option value="HUMAN_ONLY">{PLAN_LABEL.HUMAN_ONLY}</option>
+              <option value="AI_ONLY">{PLAN_LABEL.AI_ONLY}</option>
+            </select>
+            <p className="modal__hint">{PLAN_DESC[newPlan]}</p>
+
+            {createError && <p className="home__error">{createError}</p>}
+
+            <div className="modal__actions">
+              <button
+                type="button"
+                className="linkbtn"
+                onClick={() => setShowCreate(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={!newTitle.trim()}
+              >
+                Create task
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

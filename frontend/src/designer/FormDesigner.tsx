@@ -140,10 +140,11 @@ export function FormDesigner({
   return (
     <div className="designer">
       <header className="designer__topbar">
+        <Link className="backbtn" to="/" title="Back to tasks">
+          ← Tasks
+        </Link>
         <div className="brand">
-          <Link className="brand__home" to="/" title="Back to tasks">
-            🏷️
-          </Link>
+          <span className="brand__logo">🏷️</span>
           <span className="brand__name">LabelHub</span>
           <span className="brand__sep">/</span>
           <span className="brand__page">{taskTitle || 'Form Designer'}</span>
