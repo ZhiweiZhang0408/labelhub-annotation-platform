@@ -28,9 +28,13 @@ import './FormDesigner.css';
 interface Props {
   taskTitle: string;
   initialSchema: FormSchemaDefinition | null;
+  initialItems?: DataItem[]; // 已上传的数据(回显，只读)
   onSave: (schema: FormSchemaDefinition) => Promise<void>;
-  // 发布：保存表单 + 上传数据 + 置 PUBLISHED（由页面接后端）
-  onRelease: (schema: FormSchemaDefinition, items: DataItem[]) => Promise<void>;
+  // 发布：保存表单 + 上传【新增】数据 + 置 PUBLISHED（由页面接后端）
+  onRelease: (
+    schema: FormSchemaDefinition,
+    newItems: DataItem[],
+  ) => Promise<void>;
 }
 
 // 生成初始序号：从已有字段 id(field_N) 里取最大 N，续着往下发，避免 id 撞车。
@@ -46,6 +50,7 @@ function initialSeq(fields: FormField[]): number {
 export function FormDesigner({
   taskTitle,
   initialSchema,
+  initialItems,
   onSave,
   onRelease,
 }: Props) {
@@ -56,7 +61,7 @@ export function FormDesigner({
   const [showDevView, setShowDevView] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [subjectKind, setSubjectKind] = useState<SubjectKind>('image');
-  const [items, setItems] = useState<DataItem[]>([]); // 上传的待标注数据(前端本地)
+  const [items, setItems] = useState<DataItem[]>(initialItems ?? []); // 已有(existing) + 新增
   const seq = useRef(initialSeq(initialSchema?.fields ?? []));
 
   // 保存相关状态
@@ -74,7 +79,7 @@ export function FormDesigner({
     setReleasing(true);
     setReleaseError('');
     try {
-      await onRelease(schema, items); // 保存表单 + 上传数据 + 发布
+      await onRelease(schema, newItems); // 只上传【新增】数据(已有的不重复传)
       setReleased(true);
       setShowRelease(false);
     } catch (e) {
@@ -118,8 +123,9 @@ export function FormDesigner({
 
   // 当前类型的数据 + 一条样例(给预览用)
   const shownItems = items.filter((it) => it.kind === subjectKind);
-  const itemCount = shownItems.length;
   const sampleItem = shownItems[0];
+  const newItems = items.filter((it) => !it.existing); // 待上传的(非已有)
+  const itemCount = items.length; // 总数据条数(发布弹窗展示)
   const canRelease = fields.length > 0 && issues === 0;
 
   async function handleSave() {

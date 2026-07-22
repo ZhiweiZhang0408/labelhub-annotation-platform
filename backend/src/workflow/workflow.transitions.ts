@@ -29,22 +29,26 @@ export interface Transition {
   roles: Role[]; // 谁能触发；空数组 = 系统内部触发(AI 步骤)
 }
 
+// "工人"岗位：标注和审核是同一个岗位(ANNOTATOR / REVIEWER 都算)，
+// 都能领取/提交/通过/打回。"不能审自己标的那条"在 Service 层守。
+const WORKER = [Role.ANNOTATOR, Role.REVIEWER];
+
 // ① AI 标注 → 人工审核
 const AI_PLUS_HUMAN: Transition[] = [
   { from: 'PENDING', action: 'aiLabel', to: 'AI_REVIEWING', roles: [] },
   { from: 'AI_REVIEWING', action: 'aiToHuman', to: 'HUMAN_REVIEW', roles: [] },
-  { from: 'HUMAN_REVIEW', action: 'approve', to: 'APPROVED', roles: [Role.REVIEWER] },
+  { from: 'HUMAN_REVIEW', action: 'approve', to: 'APPROVED', roles: WORKER },
   // 打回 → 回到待处理，让 AI 重标
-  { from: 'HUMAN_REVIEW', action: 'reject', to: 'PENDING', roles: [Role.REVIEWER] },
+  { from: 'HUMAN_REVIEW', action: 'reject', to: 'PENDING', roles: WORKER },
 ];
 
 // ② 纯人工：人标注 → 人审核
 const HUMAN_ONLY: Transition[] = [
-  { from: 'PENDING', action: 'claim', to: 'IN_PROGRESS', roles: [Role.ANNOTATOR] },
-  { from: 'IN_PROGRESS', action: 'submit', to: 'HUMAN_REVIEW', roles: [Role.ANNOTATOR] },
-  { from: 'HUMAN_REVIEW', action: 'approve', to: 'APPROVED', roles: [Role.REVIEWER] },
+  { from: 'PENDING', action: 'claim', to: 'IN_PROGRESS', roles: WORKER },
+  { from: 'IN_PROGRESS', action: 'submit', to: 'HUMAN_REVIEW', roles: WORKER },
+  { from: 'HUMAN_REVIEW', action: 'approve', to: 'APPROVED', roles: WORKER },
   // 打回 → 回到标注中，让原标注员重标
-  { from: 'HUMAN_REVIEW', action: 'reject', to: 'IN_PROGRESS', roles: [Role.REVIEWER] },
+  { from: 'HUMAN_REVIEW', action: 'reject', to: 'IN_PROGRESS', roles: WORKER },
 ];
 
 // ③ 纯 AI：AI 标注 → 自动入库

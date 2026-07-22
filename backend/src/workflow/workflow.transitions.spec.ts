@@ -78,8 +78,16 @@ describe('workflow state machine — 按方案分三套 (checkTransition)', () =
       expect(r.ok).toBe(false);
       if (!r.ok) expect(r.code).toBe('ILLEGAL');
     });
-    it('角色越权：标注员不能 approve', () => {
-      const r = checkTransition('HUMAN_ONLY', 'HUMAN_REVIEW', 'approve', Role.ANNOTATOR);
+    it('岗位合并：工人(标注员/审核员)都能 approve', () => {
+      expect(
+        checkTransition('HUMAN_ONLY', 'HUMAN_REVIEW', 'approve', Role.ANNOTATOR).ok,
+      ).toBe(true);
+      expect(
+        checkTransition('HUMAN_ONLY', 'HUMAN_REVIEW', 'approve', Role.REVIEWER).ok,
+      ).toBe(true);
+    });
+    it('角色越权：负责人不能 approve(只有工人岗位能)', () => {
+      const r = checkTransition('HUMAN_ONLY', 'HUMAN_REVIEW', 'approve', Role.TASK_OWNER);
       expect(r.ok).toBe(false);
       if (!r.ok) expect(r.code).toBe('FORBIDDEN');
     });

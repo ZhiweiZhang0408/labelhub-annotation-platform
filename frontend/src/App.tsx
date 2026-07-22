@@ -4,6 +4,8 @@ import { LoginPage } from './pages/LoginPage';
 import { HomePage } from './pages/HomePage';
 import { DesignerPage } from './pages/DesignerPage';
 import { WorkbenchPage } from './pages/WorkbenchPage';
+import { ReviewPage } from './pages/ReviewPage';
+import { TaskDetailPage } from './pages/TaskDetailPage';
 import './pages/pages.css';
 
 function App() {
@@ -31,6 +33,22 @@ function App() {
         element={
           <RequireAuth>
             <WorkbenchPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/tasks/:taskId/review"
+        element={
+          <RequireAuth>
+            <ReviewPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/tasks/:taskId"
+        element={
+          <RequireAuth>
+            <TaskDetailPage />
           </RequireAuth>
         }
       />

@@ -10,6 +10,7 @@ export function DesignerPage() {
   const { taskId } = useParams<{ taskId: string }>();
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [initial, setInitial] = useState<FormSchemaDefinition | null>(null);
+  const [initialItems, setInitialItems] = useState<DataItem[]>([]);
   const [taskTitle, setTaskTitle] = useState('');
   const [errMsg, setErrMsg] = useState('');
 
@@ -29,6 +30,21 @@ export function DesignerPage() {
           if (!cancelled) setInitial(row.schema);
         } catch (e) {
           if (!(e instanceof ApiError && e.status === 404)) throw e;
+        }
+
+        // 取已上传的数据(回显；标为 existing=只读)
+        const rows = await api.getItems(taskId);
+        if (!cancelled) {
+          setInitialItems(
+            rows.map((r) => ({
+              id: r.id,
+              name: r.payload.name,
+              kind: r.payload.kind as DataItem['kind'],
+              url: r.payload.url,
+              text: r.payload.text,
+              existing: true,
+            })),
+          );
         }
         if (!cancelled) setStatus('ready');
       } catch (e) {
@@ -72,6 +88,7 @@ export function DesignerPage() {
     <FormDesigner
       taskTitle={taskTitle}
       initialSchema={initial}
+      initialItems={initialItems}
       onSave={handleSave}
       onRelease={handleRelease}
     />

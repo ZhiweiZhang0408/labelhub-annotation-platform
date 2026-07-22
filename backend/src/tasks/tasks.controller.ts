@@ -41,8 +41,15 @@ export class TasksController {
 
   @Get()
   @UseGuards(AuthGuard('jwt'))
-  list() {
-    return this.tasks.listAll();
+  list(@CurrentUser() user: AuthUser) {
+    return this.tasks.listAll(user.role);
+  }
+
+  // 列出某任务已有的数据项（设计器回显用）
+  @Get(':id/items')
+  @UseGuards(AuthGuard('jwt'))
+  listItems(@Param('id') id: string) {
+    return this.tasks.listItems(id);
   }
 
   // W3-2：上传数据 → 生成待标注项（仅负责人）

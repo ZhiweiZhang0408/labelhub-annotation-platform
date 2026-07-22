@@ -59,10 +59,11 @@ export function SubjectPreview({
   }
 
   function addPastedText() {
-    if (!draft.trim()) return;
-    onAddItems([
-      { id: crypto.randomUUID(), name: 'pasted text', kind: 'text', text: draft.trim() },
-    ]);
+    const t = draft.trim();
+    if (!t) return;
+    // 名字取内容前 20 个字，比 "pasted text" 有意义
+    const name = t.length > 20 ? t.slice(0, 20) + '…' : t;
+    onAddItems([{ id: crypto.randomUUID(), name, kind: 'text', text: t }]);
     setDraft('');
   }
 
@@ -137,15 +138,21 @@ export function SubjectPreview({
   );
 }
 
-// 一条数据的预览卡片，按类型渲染。
+// 一条数据的预览卡片，按类型渲染。已上传的(existing)只读、不可删。
 function ItemCard({ item, onRemove }: { item: DataItem; onRemove: () => void }) {
   if (item.kind === 'image') {
     return (
-      <div className="thumb">
+      <div className={`thumb${item.existing ? ' thumb--existing' : ''}`}>
         <img src={item.url} alt={item.name} />
-        <button className="thumb__del" title="Remove" onClick={onRemove}>
-          ✕
-        </button>
+        {item.existing ? (
+          <span className="thumb__tag" title="Already uploaded">
+            ✓
+          </span>
+        ) : (
+          <button className="thumb__del" title="Remove" onClick={onRemove}>
+            ✕
+          </button>
+        )}
       </div>
     );
   }
@@ -158,9 +165,13 @@ function ItemCard({ item, onRemove }: { item: DataItem; onRemove: () => void }) 
       </div>
       <div className="item__foot">
         <span className="item__name">{item.name}</span>
-        <button className="item__del" title="Remove" onClick={onRemove}>
-          ✕
-        </button>
+        {item.existing ? (
+          <span className="item__tag">uploaded</span>
+        ) : (
+          <button className="item__del" title="Remove" onClick={onRemove}>
+            ✕
+          </button>
+        )}
       </div>
     </div>
   );

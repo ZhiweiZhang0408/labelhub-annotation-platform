@@ -22,6 +22,7 @@ export function HomePage() {
   const nav = useNavigate();
   const user = getUser();
   const isOwner = user?.role === 'TASK_OWNER';
+  const isWorker = !!user && user.role !== 'TASK_OWNER'; // 标注/审核同一岗位
 
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,7 +160,9 @@ export function HomePage() {
                 {filtered.map((t) => (
               <li key={t.id} className="taskrow">
                 <div className="taskrow__main">
-                  <span className="taskrow__title">{t.title}</span>
+                  <Link className="taskrow__title" to={`/tasks/${t.id}`}>
+                    {t.title}
+                  </Link>
                   <span className="taskrow__plan">{PLAN_LABEL[t.plan]}</span>
                   <span
                     className={`taskrow__badge${
@@ -184,18 +187,22 @@ export function HomePage() {
                       Design
                     </Link>
                   )}
-                  {/* 标注员：只能标注已发布的任务 */}
-                  {user?.role === 'ANNOTATOR' &&
-                    (t.status === 'PUBLISHED' ? (
-                      <Link
-                        className="linkbtn"
-                        to={`/tasks/${t.id}/annotate`}
-                      >
-                        Annotate
+                  {/* 工人(标注/审核同一岗位)：已发布任务可标注(纯人工)+审核 */}
+                  {isWorker && t.status === 'PUBLISHED' && (
+                    <>
+                      {t.plan === 'HUMAN_ONLY' && (
+                        <Link
+                          className="linkbtn"
+                          to={`/tasks/${t.id}/annotate`}
+                        >
+                          Annotate
+                        </Link>
+                      )}
+                      <Link className="linkbtn" to={`/tasks/${t.id}/review`}>
+                        Review
                       </Link>
-                    ) : (
-                      <span className="taskrow__disabled">Annotate</span>
-                    ))}
+                    </>
+                  )}
                 </div>
               </li>
                 ))}

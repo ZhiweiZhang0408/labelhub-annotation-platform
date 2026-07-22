@@ -97,6 +97,31 @@ export interface FormSchemaRow {
   updatedAt: string;
 }
 
+// 一条待标注数据（后端返回）
+export interface AnnotationItem {
+  id: string;
+  status: string;
+  payload: { kind: string; name: string; url?: string; text?: string };
+  result: unknown;
+}
+
+export interface TaskProgress {
+  total: number;
+  counts: Record<string, number>;
+}
+
+// 待审核的一条(给审核台)
+export interface ReviewItem {
+  id: string;
+  payload: { kind: string; name: string; url?: string; text?: string };
+  result: Record<string, unknown> | null;
+  aiReview: {
+    score: number | null;
+    decision: string;
+    comment: string | null;
+  } | null;
+}
+
 export const api = {
   login: (email: string, password: string) =>
     req<{ accessToken: string; user: SessionUser }>('/auth/login', {
@@ -109,6 +134,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ title, ...(plan ? { plan } : {}) }),
     }),
+  getItems: (taskId: string) =>
+    req<
+      {
+        id: string;
+        status: string;
+        payload: ItemPayload;
+        result: Record<string, unknown> | null;
+      }[]
+    >(`/tasks/${taskId}/items`),
   createItems: (taskId: string, items: ItemPayload[]) =>
     req<{ created: number }>(`/tasks/${taskId}/items`, {
       method: 'POST',
@@ -116,6 +150,28 @@ export const api = {
     }),
   releaseTask: (taskId: string) =>
     req<TaskSummary>(`/tasks/${taskId}/release`, { method: 'POST' }),
+  // W3-3 标注员：领取下一条 / 提交 / 看进度
+  claimItem: (taskId: string) =>
+    req<AnnotationItem>(`/tasks/${taskId}/annotations/claim`, {
+      method: 'POST',
+    }),
+  submitAnnotation: (annotationId: string, result: Record<string, unknown>) =>
+    req<AnnotationItem>(`/annotations/${annotationId}/submit`, {
+      method: 'POST',
+      body: JSON.stringify({ result }),
+    }),
+  taskProgress: (taskId: string) =>
+    req<TaskProgress>(`/tasks/${taskId}/progress`),
+  // W3-4 审核员：待审队列 / 通过 / 打回
+  reviewQueue: (taskId: string) =>
+    req<ReviewItem[]>(`/tasks/${taskId}/review-queue`),
+  approveAnnotation: (id: string) =>
+    req<AnnotationItem>(`/annotations/${id}/approve`, { method: 'POST' }),
+  rejectAnnotation: (id: string, comment: string) =>
+    req<AnnotationItem>(`/annotations/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ comment }),
+    }),
   getFormSchema: (taskId: string) =>
     req<FormSchemaRow>(`/tasks/${taskId}/form-schema`),
   putFormSchema: (taskId: string, schema: FormSchemaDefinition) =>

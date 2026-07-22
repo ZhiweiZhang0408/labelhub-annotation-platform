@@ -48,9 +48,9 @@ export function ReleaseModal({
         </ul>
 
         <p className="release__note">
-          Saves the form, uploads the {itemCount} data item
-          {itemCount === 1 ? '' : 's'} as annotation tasks, and marks this task
-          published so annotators can start.
+          Saves the form, uploads any new data, and publishes this task (
+          {itemCount} data item{itemCount === 1 ? '' : 's'}) so annotators can
+          start.
         </p>
 
         {error && <p className="release__error">{error}</p>}

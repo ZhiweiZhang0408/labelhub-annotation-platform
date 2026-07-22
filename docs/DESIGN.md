@@ -283,22 +283,62 @@
 - **产出**：标注员能拉一条真数据、对着它填表单、提交入库；`result` 有值、状态推进；工作台占位换成真数据。
 - **学到**：领取=并发下的认领(谁先领谁做)、把提交结果按字段 id 存 JSONB、前端动作↔后端状态转移的映射。
 - **自己试试**：领一条标注提交，看 Annotation 的 status 变 SUBMITTED、result 落库。
+- **实际产出**（✅ 完成，本天只做 HUMAN_ONLY 方案的人工标注环节）：
+  - 后端 `annotations` 模块：`POST /tasks/:taskId/annotations/claim`(ANNOTATOR，取最早一条 PENDING → 走状态机 `claim` PENDING→IN_PROGRESS + 记 annotatorId；无则 404)、`POST /annotations/:id/submit`(ANNOTATOR 本人，存 `result` → `submit` IN_PROGRESS→HUMAN_REVIEW)、`GET /tasks/:taskId/progress`(groupBy status 统计)。状态变更全过 `WorkflowService`。
+  - 前端工作台重做：进入先 `claim` 一条 → 按 `payload.kind` 渲染**真实数据**(图/文/音/视) + `FormRenderer`(`key=item.id` 每条重置) → 提交后自动领下一条；顶栏显示进度(Submitted X/Total)；领空显示"🎉 All caught up"。首页 Annotate 限 **HUMAN_ONLY + PUBLISHED**。
+  - 端到端验证(curl)：进度 total2/PENDING2 → 领取(IN_PROGRESS+带出 payload.text) → 提交(HUMAN_REVIEW+result 落库) → 进度变 → 领第2条提交 → 再领 404 → owner 越权领取 403 → 库内两条均 HUMAN_REVIEW 带 result。前端 build 通过。
+  - **注**：现在提交后停在 HUMAN_REVIEW(等 D4 审核台)。AI 方案的自动流转 & 审核在 D4。
 
-### Day 4 — AI 预审(mock) + 人工审核台
+### Day 4 — AI 预审(mock) + 人工审核台 ✅（已完成）
 - **做什么**：提交后触发 **AI 预审(mock)**——调 W1 的 FastAPI mock `/review`(或后端桩)生成一条 `Review(type=AI)`(给个分数 + 通过/驳回**建议**)，状态 SUBMITTED→(AI_REVIEWING)→HUMAN_REVIEW。做**审核台**(reviewer)：列出待人工审核项，展示标注对象 + 提交结果 + AI 建议；**通过**→APPROVED；**打回**(带批注)→IN_PROGRESS(退回标注员)，各写一条 `Review(type=HUMAN)`。
 - **为什么**：长链路的后半段 + 分叉(通过/打回)。AI 先占位，把"人审"这条最有业务价值的流程跑通。
 - **产出**：提交项自动带上 AI 建议；审核员能通过/打回；打回的数据回到标注员重标(形成闭环回路)。
 - **学到**：AI/人工审核共用 `Review` 靠 `type` 区分、审核作为状态机的分叉节点、打回=回到上游状态。
 - **自己试试**：把一条已提交数据打回，确认它回到标注员的待办里、能再次标注。
+- **实际产出**（✅ 完成，三方案分别走通）：
+  - `AnnotationsService` 扩展：`runAiForTask`(AI 方案发布时对每条 PENDING 跑 mock：`mockAnswers` 按字段编答案 → `aiLabel`(PENDING→AI_REVIEWING)存 result + 写 `Review(type=AI, score随机, 建议)` → AI+人审走 `aiToHuman`→HUMAN_REVIEW、纯AI走 `aiApprove`→APPROVED)、`reviewQueue`(列 HUMAN_REVIEW + 带 AI 建议)、`approve`(→APPROVED + `Review(HUMAN)`)、`reject`(→上游 + `Review(HUMAN,REJECTED,comment)`)、`maybeCompleteTask`(全 APPROVED → Task `COMPLETED`)。`claimNext` 改为先给"我的 IN_PROGRESS"(打回重做)再领新 PENDING。
+  - 路由：`GET /tasks/:id/review-queue`、`POST /annotations/:id/approve`、`.../reject`(均限 REVIEWER)。`TasksService.release` 对 AI 方案调 `runAiForTask`(TasksModule 引入 AnnotationsModule)。
+  - 前端：`ReviewPage` 审核台(逐条：标注对象 + 提交结果 + AI 建议 → 通过/打回带批注)；首页审核员显示 **Review** 入口；`SubjectView` 共享组件(工作台+审核台复用)。demo 加 `reviewer@demo.com`。
+  - 端到端验证：AI+人审(发布→AI→待审带建议→通过→COMPLETED)、纯AI(发布→直接入库→COMPLETED)、纯人工打回回路(提交→打回→**同一条退回原标注员**→重提→通过→COMPLETED)、标注员看审核队列 403。
 
-### Day 5 — 打通全链路 + 进度台 + 收尾
+### Day 5 — 打通全链路 + 进度台 + 收尾 ✅（已完成）
 - **做什么**：做 owner 的**进度台**(按状态统计：待标注/标注中/已提交/待审核/已入库/打回)。端到端走一条数据的**完整一生**：PENDING→…→APPROVED，再演示一次"打回→重标→通过"的回路。联调 + 提交 + 更新文档。
 - **为什么**：单点通不等于链路通。让一条数据真正跑完全程 + owner 能看见全局进度，才算 #2 落地。
 - **产出**：进度台可看各状态数量；一条数据完整流转 + 打回回路演示；Week 3 的若干 commit。
 - **学到**：聚合统计(group by status)、长链路的全局视角、状态机在真实链路里的自洽。
 - **自己试试**：造几条数据跑到不同状态，看进度台数字对不对。
+- **实际产出**（✅ 完成）：
+  - `GET /tasks/:id/progress`(按状态 groupBy 统计)已在 D3 建、D5 用起来。
+  - 前端 `TaskDetailPage`(`/tasks/:id`)：任务详情/进度台 —— 方案/状态/条数 + **堆叠进度条 + 图例**(PENDING/IN_PROGRESS/AI/HUMAN_REVIEW/APPROVED 各多少)。首页**任务标题可点**进详情(也顺带满足"看任务详情/已上传数据")。
+  - 全链路端到端已在 D1-D4 逐段验证；三方案都能从创建走到 COMPLETED，打回回路成立。
+  - **Week 3 完工**：难度三件套 #2(长链路 workflow) 落地；一套状态机引擎 + 三方案转移表。AI 仍 mock，W4 换真模型。
 
 > **本周完成标志**：一条标注数据能在**显式状态机**管控下走完 待标注→标注→提交→AI预审(mock)→人工审核→入库 的全程，打回能退回重标；owner 能看进度。难度三件套 #2(长链路 workflow) 落地。AI 预审此时仍是 mock，W4 换真模型。
+
+---
+
+## 5.4 进阶标注工具（规划 · 待排期）
+
+> 现有字段(text/单选/数字…)是"问卷式"、**与素材无关**。真正的数据标注平台(Label Studio / Scale AI)核心是**直接在素材上标注**的工具。这一块把它们做成**新的"标注型字段"**，仍走同一套 schema-driven 架构 + 同一个工作流状态机。
+
+**四种进阶标注型字段（新增 `FieldType`）：**
+
+| 类型 | 用于素材 | 交互 | 结果(存进 `Annotation.result`) |
+|---|---|---|---|
+| `bbox` 框选 | 图片 | 在图上拖拽画矩形框、可多个、可删/改 | `[{x,y,w,h,label?}]` |
+| `polygon` 分割 | 图片 | 点击落点连成多边形 | `[{points:[[x,y]…],label?}]` |
+| `timespan` 时间区间 | 音频/视频 | 播放器 + 时间轴上框 start~end | `[{start,end,label?}]` |
+| `textspan` 高亮 | 文本 | 选中文字片段打标签(NER) | `[{start,end,text,label?}]` |
+
+**架构落点（不改契约与工作流，只加"类型 + 对应渲染器组件"）：**
+- 契约 `form-schema.types.ts` 加这几种 `type`（可带 `labels` 供选择的类别、`multiple` 等配置）。
+- 设计器：作为新字段类型加进面板（可只在素材类型匹配时可用，如 bbox 仅图片任务）。
+- 渲染器 `FormRenderer`：为每种类型写一个**在素材上操作的交互组件**（canvas 拖拽 / 波形时间轴 / 文本选区）——这是难点，每个都是一块硬骨头。
+- 结果一样进 `Annotation.result`、一样走状态机(标注→审核→入库)。
+
+**一个架构演进**：这些工具让**表单与素材耦合**——工作台从"上看素材、下填表单"变成"**直接在素材上标**"。
+
+**排期建议**：Week 3 工作流是它们的地基(先做完 ✅)。之后开专门阶段，**一次做一个**(建议先 `bbox` 或 `textspan`)，避免烂尾。AI 预标(如 SAM 自动分割 / 模型预框)可在 W4 结合真模型。
 
 ---
 
@@ -352,8 +392,9 @@
 - [x] **W2-5（Day 5）**：打通闭环 ✅ —— 后端 CORS + tasks 接口；前端路由/登录/首页/工作台；设计器 Save(PUT)+保存闸；角色分离。前端 mock：四类型上传 + Release 弹窗(W3 接真后端)。**Week 2 完工，schema-driven UI 落地。**
 - [x] **W3-1（Day 1）**：显式状态机(`TRANSITIONS` 转移表 + `checkTransition` + `WorkflowService.apply`，非法→400/越权→403) + Task status(DRAFT/PUBLISHED) migration + 10 单测全绿
 - [x] **W3-2（Day 2）**：`POST /tasks/:id/items`(生成 Annotation PENDING，媒体 base64 进 payload) + `POST /tasks/:id/release`(要求表单+数据 → PUBLISHED)；前端建任务选方案 + 上传/发布切真 API + Annotate 限已发布。端到端验证过。
-- [ ] **W3-3（Day 3）**：标注员领取(PENDING→IN_PROGRESS)+ 工作台展示真数据 + 提交(result 入库, →SUBMITTED)
-- [ ] **W3-4（Day 4）**：AI 预审(mock, 写 Review type=AI + 建议) + 审核台(通过→APPROVED / 打回→IN_PROGRESS, Review type=HUMAN)
-- [ ] **W3-5（Day 5）**：owner 进度台(按状态统计) + 全链路端到端联调(含打回回路) + commit
+- [x] **W3-3（Day 3）**：annotations 模块 claim/submit/progress(过状态机)；工作台领真实数据渲染+提交自动下一条+进度；Annotate 限 HUMAN_ONLY+PUBLISHED。端到端验证过。
+- [x] **W3-4（Day 4）**：AI 预审(mock) + 审核台(通过/打回, Review AI/HUMAN) + 自动完成(全入库→COMPLETED)；三方案走通。
+- [x] **W3-5（Day 5）**：进度台/任务详情(堆叠进度条) + 全链路端到端联调。**Week 3 完工。**
+- [ ] **进阶标注工具（W3.5 / 待排期）**：bbox 框选 / polygon 分割 / timespan 时间区间 / textspan 高亮 —— 见 §5.4
 
 > 本文件为"活文档"，每完成一个里程碑就更新。

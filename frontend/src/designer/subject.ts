@@ -10,6 +10,7 @@ export interface DataItem {
   kind: SubjectKind;
   url?: string; // 图/音/视 的本地预览地址
   text?: string; // 文本内容
+  existing?: boolean; // true = 已上传到后端(只读，不可删、不重复上传)
 }
 
 // 各类型上传时的文件过滤

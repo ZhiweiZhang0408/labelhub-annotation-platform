@@ -418,6 +418,27 @@
   border-color: var(--accent-border);
   color: var(--accent);
 }
+.thumb__tag {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  background: #2f9e44;
+  color: #fff;
+  font-size: 11px;
+}
+.item__tag {
+  font-size: 11px;
+  color: #2f9e44;
+  background: rgba(47, 158, 68, 0.12);
+  padding: 2px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
 
 /* 通用上传按钮 */
 .uploadbtn {

@@ -7,13 +7,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AnnotationsService } from '../annotations/annotations.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 
 @Injectable()
 export class TasksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly annotations: AnnotationsService,
+  ) {}
 
   // 建任务：归属当前登录的负责人。plan 不传则用 schema 默认(AI_PLUS_HUMAN)。
   create(ownerId: string, dto: CreateTaskDto) {
@@ -27,9 +31,14 @@ export class TasksService {
     });
   }
 
-  // 列出所有任务。带出是否已配表单(hasForm)、方案、发布状态、数据条数。
-  async listAll() {
+  // 列出任务。负责人看全部；其他角色(标注员/审核员)只看已发布/已完成的。
+  async listAll(role: Role) {
+    const where: Prisma.TaskWhereInput =
+      role === Role.TASK_OWNER
+        ? {}
+        : { status: { in: ['PUBLISHED', 'COMPLETED'] } };
     const tasks = await this.prisma.task.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
       include: {
         formSchema: { select: { id: true } },
@@ -45,6 +54,21 @@ export class TasksService {
       createdAt: t.createdAt,
       hasForm: t.formSchema !== null,
       itemCount: t._count.annotations,
+    }));
+  }
+
+  // 列出某任务已有的数据项(设计器回显已上传数据 / owner 看标注结果)。
+  async listItems(taskId: string) {
+    const anns = await this.prisma.annotation.findMany({
+      where: { taskId },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, status: true, payload: true, result: true },
+    });
+    return anns.map((a) => ({
+      id: a.id,
+      status: a.status,
+      payload: a.payload,
+      result: a.result,
     }));
   }
 
@@ -78,9 +102,14 @@ export class TasksService {
     if (task._count.annotations === 0) {
       throw new BadRequestException('发布前请先上传至少一条数据');
     }
-    return this.prisma.task.update({
+    const published = await this.prisma.task.update({
       where: { id: taskId },
       data: { status: 'PUBLISHED' },
     });
+    // AI 方案：发布即跑 AI 预审(mock)。纯AI会直接把数据推到已入库/任务完成。
+    await this.annotations.runAiForTask(taskId);
+    // 重新取一次(纯AI 可能已把任务置为 COMPLETED)
+    const fresh = await this.prisma.task.findUnique({ where: { id: taskId } });
+    return fresh ?? published;
   }
 }
