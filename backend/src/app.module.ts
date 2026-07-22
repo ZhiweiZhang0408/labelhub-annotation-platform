@@ -9,6 +9,7 @@ import { FormSchemaModule } from './form-schema/form-schema.module';
 import { TasksModule } from './tasks/tasks.module';
 import { WorkflowModule } from './workflow/workflow.module';
 import { AnnotationsModule } from './annotations/annotations.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { AnnotationsModule } from './annotations/annotations.module';
     TasksModule, // ← D5 新增：任务最小存取
     WorkflowModule, // ← W3-1 新增：状态机
     AnnotationsModule, // ← W3-3 新增：标注员领取/提交
+    UsersModule, // ← 分配：列出工人
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -31,12 +31,15 @@ export class TasksService {
     });
   }
 
-  // 列出任务。负责人看全部；其他角色(标注员/审核员)只看已发布/已完成的。
-  async listAll(role: Role) {
+  // 列出任务。负责人看全部；工人只看【分配给自己的】已发布/已完成任务。
+  async listAll(user: { id: string; role: Role }) {
     const where: Prisma.TaskWhereInput =
-      role === Role.TASK_OWNER
+      user.role === Role.TASK_OWNER
         ? {}
-        : { status: { in: ['PUBLISHED', 'COMPLETED'] } };
+        : {
+            status: { in: ['PUBLISHED', 'COMPLETED'] },
+            assignees: { some: { id: user.id } },
+          };
     const tasks = await this.prisma.task.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -70,6 +73,29 @@ export class TasksService {
       payload: a.payload,
       result: a.result,
     }));
+  }
+
+  // 分配：设置这个任务分给哪些工人(set 覆盖式)。
+  async setAssignees(taskId: string, userIds: string[]) {
+    const task = await this.prisma.task.findUnique({ where: { id: taskId } });
+    if (!task) throw new NotFoundException(`任务 ${taskId} 不存在`);
+    return this.prisma.task.update({
+      where: { id: taskId },
+      data: { assignees: { set: userIds.map((id) => ({ id })) } },
+      include: { assignees: { select: { id: true, name: true, email: true } } },
+    });
+  }
+
+  // 读取当前分配的工人。
+  async getAssignees(taskId: string) {
+    const task = await this.prisma.task.findUnique({
+      where: { id: taskId },
+      include: {
+        assignees: { select: { id: true, name: true, email: true, role: true } },
+      },
+    });
+    if (!task) throw new NotFoundException(`任务 ${taskId} 不存在`);
+    return task.assignees;
   }
 
   // W3-2：把上传的一批数据炸开成一条条待标注项(Annotation, 状态默认 PENDING)。

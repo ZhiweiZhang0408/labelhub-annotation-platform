@@ -75,9 +75,10 @@ model User {
   updatedAt    DateTime @updatedAt // 每次更新自动刷新
 
   // 反向关系（不在库里建列，只是让你能从 user 一路查到它名下的东西）
-  ownedTasks  Task[] // 作为负责人创建的任务
-  annotations Annotation[] // 作为标注员做的标注
-  reviews     Review[] // 作为审核员做的审核
+  ownedTasks    Task[] // 作为负责人创建的任务
+  annotations   Annotation[] // 作为标注员做的标注
+  reviews       Review[] // 作为审核员做的审核
+  assignedTasks Task[]       @relation("TaskAssignees") // W3：被分配到的任务
 }
 
 // 任务：一次标注作业的容器，归属一个负责人，配一份表单。
@@ -97,6 +98,9 @@ model Task {
   // 关系：这个任务的表单定义（一对一）和它名下的所有标注（一对多）
   formSchema  FormSchema?
   annotations Annotation[]
+
+  // W3：被分配来做这个任务的工人（多对多）
+  assignees User[] @relation("TaskAssignees")
 }
 
 // 表单定义：项目最大亮点"schema-driven UI"的存储点。

@@ -110,6 +110,14 @@ export interface TaskProgress {
   counts: Record<string, number>;
 }
 
+// 工人(可被分配任务的人)
+export interface Worker {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
 // 待审核的一条(给审核台)
 export interface ReviewItem {
   id: string;
@@ -171,6 +179,15 @@ export const api = {
     req<AnnotationItem>(`/annotations/${id}/reject`, {
       method: 'POST',
       body: JSON.stringify({ comment }),
+    }),
+  // 分配：列出工人 / 读取当前分配 / 设置分配
+  listWorkers: () => req<Worker[]>('/users/workers'),
+  getAssignees: (taskId: string) =>
+    req<Worker[]>(`/tasks/${taskId}/assignees`),
+  setAssignees: (taskId: string, userIds: string[]) =>
+    req(`/tasks/${taskId}/assignees`, {
+      method: 'PUT',
+      body: JSON.stringify({ userIds }),
     }),
   getFormSchema: (taskId: string) =>
     req<FormSchemaRow>(`/tasks/${taskId}/form-schema`),

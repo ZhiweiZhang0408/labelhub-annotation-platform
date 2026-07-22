@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, getUser } from '../api';
-import type { ItemPayload, TaskProgress, TaskSummary } from '../api';
+import type { ItemPayload, TaskProgress, TaskSummary, Worker } from '../api';
 
 interface ResultItem {
   id: string;
@@ -32,6 +32,9 @@ export function TaskDetailPage() {
   const [task, setTask] = useState<TaskSummary | null>(null);
   const [progress, setProgress] = useState<TaskProgress | null>(null);
   const [items, setItems] = useState<ResultItem[]>([]);
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [assignMsg, setAssignMsg] = useState('');
   const [loading, setLoading] = useState(true);
   const [errMsg, setErrMsg] = useState('');
 
@@ -42,7 +45,12 @@ export function TaskDetailPage() {
         const tasks = await api.listTasks();
         setTask(tasks.find((t) => t.id === taskId) ?? null);
         setProgress(await api.taskProgress(taskId));
-        if (isOwner) setItems(await api.getItems(taskId)); // owner 看结果
+        if (isOwner) {
+          setItems(await api.getItems(taskId)); // 看结果
+          setWorkers(await api.listWorkers()); // 可分配的工人
+          const assigned = await api.getAssignees(taskId);
+          setSelected(new Set(assigned.map((w) => w.id))); // 预勾当前分配
+        }
       } catch (e) {
         setErrMsg(e instanceof Error ? e.message : 'Failed');
       } finally {
@@ -51,6 +59,26 @@ export function TaskDetailPage() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId]);
+
+  function toggleWorker(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setAssignMsg('');
+  }
+
+  async function saveAssignees() {
+    if (!taskId) return;
+    try {
+      await api.setAssignees(taskId, [...selected]);
+      setAssignMsg('Saved ✓');
+    } catch (e) {
+      setAssignMsg(e instanceof Error ? e.message : 'Failed');
+    }
+  }
 
   if (loading) return <div className="page-center">Loading…</div>;
   if (errMsg) return <div className="page-center">Error: {errMsg}</div>;
@@ -109,6 +137,42 @@ export function TaskDetailPage() {
                 </li>
               ))}
             </ul>
+          </>
+        )}
+
+        {isOwner && task?.status === 'PUBLISHED' && (
+          <>
+            <h2 className="detail__h2 detail__h2--mt">Assign workers</h2>
+            {workers.length === 0 ? (
+              <p className="home__muted">No workers yet.</p>
+            ) : (
+              <>
+                <ul className="assignlist">
+                  {workers.map((w) => (
+                    <li key={w.id} className="assignrow">
+                      <label className="assignrow__label">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(w.id)}
+                          onChange={() => toggleWorker(w.id)}
+                        />
+                        <span className="assignrow__name">{w.name}</span>
+                        <span className="assignrow__email">{w.email}</span>
+                        <span className="taskrow__plan">
+                          {w.role.toLowerCase()}
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                <div className="assign__actions">
+                  {assignMsg && <span className="assign__saved">{assignMsg}</span>}
+                  <button className="btn-primary" onClick={saveAssignees}>
+                    Save assignment
+                  </button>
+                </div>
+              </>
+            )}
           </>
         )}
 

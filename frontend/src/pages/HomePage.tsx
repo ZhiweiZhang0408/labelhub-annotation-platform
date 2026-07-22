@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, clearSession, getUser } from '../api';
 import type { TaskSummary, WorkflowPlan } from '../api';
+import { AssignModal } from '../components/AssignModal';
 
 // 三种方案的显示名
 const PLAN_LABEL: Record<WorkflowPlan, string> = {
@@ -30,6 +31,7 @@ export function HomePage() {
   const [newPlan, setNewPlan] = useState<WorkflowPlan>('AI_PLUS_HUMAN');
   const [showCreate, setShowCreate] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [assignFor, setAssignFor] = useState<TaskSummary | null>(null);
   const [error, setError] = useState('');
 
   // 筛选（纯前端过滤已加载的列表）
@@ -181,10 +183,23 @@ export function HomePage() {
                   </span>
                 </div>
                 <div className="taskrow__actions">
-                  {/* 负责人：只能设计（用设计器里的 Preview 自测标注体验） */}
-                  {isOwner && (
+                  {/* 负责人：草稿→Design；已发布→Assign+Details；完成→Details */}
+                  {isOwner && t.status === 'DRAFT' && (
                     <Link className="linkbtn" to={`/tasks/${t.id}/design`}>
                       Design
+                    </Link>
+                  )}
+                  {isOwner && t.status === 'PUBLISHED' && (
+                    <button
+                      className="linkbtn"
+                      onClick={() => setAssignFor(t)}
+                    >
+                      Assign
+                    </button>
+                  )}
+                  {isOwner && t.status !== 'DRAFT' && (
+                    <Link className="linkbtn" to={`/tasks/${t.id}`}>
+                      Details
                     </Link>
                   )}
                   {/* 工人(标注/审核同一岗位)：已发布任务可标注(纯人工)+审核 */}
@@ -211,6 +226,17 @@ export function HomePage() {
           </>
         )}
       </main>
+
+      {assignFor && (
+        <AssignModal
+          taskId={assignFor.id}
+          taskTitle={assignFor.title}
+          onClose={() => {
+            setAssignFor(null);
+            void load();
+          }}
+        />
+      )}
 
       {showCreate && (
         <div className="modal-mask" onClick={() => setShowCreate(false)}>
