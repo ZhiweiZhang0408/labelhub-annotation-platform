@@ -16,6 +16,13 @@ export const FIELD_TYPE_META: { type: FieldType; label: string; icon: string }[]
     { type: 'radio', label: 'Single choice', icon: '🔘' },
     { type: 'checkbox', label: 'Multiple choice', icon: '☑️' },
     { type: 'select', label: 'Dropdown', icon: '🔽' },
+    { type: 'bbox', label: 'Image boxes', icon: '🖼️' },
+    { type: 'textspan', label: 'Text highlight', icon: '🖍️' },
+    { type: 'timespan', label: 'Time ranges', icon: '⏱️' },
+    { type: 'polygon', label: 'Polygon', icon: '🔷' },
+    { type: 'keypoints', label: 'Keypoints', icon: '📍' },
+    { type: 'rating', label: 'Rating', icon: '⭐' },
+    { type: 'transcription', label: 'Transcription', icon: '🎧' },
   ];
 
 // 由 type 反查中文名（画布卡片上显示用）。
@@ -51,6 +58,46 @@ export function createField(type: FieldType, seq: number): FormField {
       ],
     };
   }
+
+  if (type === 'bbox') {
+    // 图片框选：options 当"物体类别"，先给一个默认类别。
+    return {
+      ...base,
+      type: 'bbox' as const,
+      options: [{ label: 'Object', value: 'object' }],
+    };
+  }
+
+  if (type === 'textspan') {
+    // 文本高亮：options 当"标签类别"，先给一个默认标签。
+    return {
+      ...base,
+      type: 'textspan' as const,
+      options: [{ label: 'Entity', value: 'entity' }],
+    };
+  }
+
+  if (type === 'timespan') {
+    // 时间区间：options 当"标签"，先给一个默认标签。
+    return {
+      ...base,
+      type: 'timespan' as const,
+      options: [{ label: 'Segment', value: 'segment' }],
+    };
+  }
+
+  if (type === 'polygon' || type === 'keypoints') {
+    // 多边形/关键点：options 当"类别"，先给一个默认类别。
+    return {
+      ...base,
+      type,
+      options: [{ label: 'Object', value: 'object' }],
+    };
+  }
+
+  if (type === 'rating') return { ...base, type: 'rating' as const };
+  if (type === 'transcription')
+    return { ...base, type: 'transcription' as const };
 
   if (type === 'number') {
     return { ...base, type };

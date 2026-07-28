@@ -130,6 +130,7 @@ export function WorkbenchPage() {
             <FormRenderer
               key={item.id}
               schema={schema}
+              subject={item.payload}
               submitLabel={submitting ? 'Submitting…' : 'Submit & next'}
               onSubmit={handleSubmit}
             />

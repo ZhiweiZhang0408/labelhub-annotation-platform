@@ -18,7 +18,14 @@ export type FieldType =
   | 'number' // 数字
   | 'radio' // 单选(一组里选一个)
   | 'checkbox' // 多选(一组里选多个)
-  | 'select'; // 下拉单选
+  | 'select' // 下拉单选
+  | 'bbox' // 进阶：图片框选(在图上画矩形框，类别复用 options)
+  | 'textspan' // 进阶：文本高亮(选中片段打标签，标签复用 options)
+  | 'timespan' // 进阶：音视频时间区间(标 start~end，标签复用 options)
+  | 'polygon' // 进阶：图片多边形分割
+  | 'keypoints' // 进阶：图片关键点
+  | 'rating' // 进阶：星级评分(1~5)
+  | 'transcription'; // 进阶：音视频转写
 
 // ─────────────────────────── 校验规则（都是数据） ───────────────────────────
 // 关键决策 C：校验规则不写死在代码里，而是当作字段的属性存进 Schema。
@@ -78,8 +85,58 @@ export interface ChoiceField extends BaseField {
   options: FieldOption[];
 }
 
-// 一个字段 = 上面三类之一。这就是"判别联合"。
-export type FormField = TextField | NumberField | ChoiceField;
+// 进阶：图片框选。options 复用为"物体类别"。结果 = 一组框 [{x,y,w,h,label}]。
+export interface BboxField extends BaseField {
+  type: 'bbox';
+  options: FieldOption[];
+}
+
+// 进阶：文本高亮。options 复用为"标签类别"。结果 = [{start,end,text,label}]。
+export interface TextSpanField extends BaseField {
+  type: 'textspan';
+  options: FieldOption[];
+}
+
+// 进阶：音视频时间区间。options 复用为"标签"。结果 = [{start,end,label}](秒)。
+export interface TimeSpanField extends BaseField {
+  type: 'timespan';
+  options: FieldOption[];
+}
+
+// 进阶：图片多边形分割。options 复用为类别。结果 = [{points:[[x,y]…],label}]。
+export interface PolygonField extends BaseField {
+  type: 'polygon';
+  options: FieldOption[];
+}
+
+// 进阶：图片关键点。options 复用为类别。结果 = [{x,y,label}]。
+export interface KeypointsField extends BaseField {
+  type: 'keypoints';
+  options: FieldOption[];
+}
+
+// 进阶：星级评分(1~5)。结果 = 数字字符串。
+export interface RatingField extends BaseField {
+  type: 'rating';
+}
+
+// 进阶：音视频转写。结果 = 文本。
+export interface TranscriptionField extends BaseField {
+  type: 'transcription';
+}
+
+// 一个字段 = 上面几类之一。这就是"判别联合"。
+export type FormField =
+  | TextField
+  | NumberField
+  | ChoiceField
+  | BboxField
+  | TextSpanField
+  | TimeSpanField
+  | PolygonField
+  | KeypointsField
+  | RatingField
+  | TranscriptionField;
 
 // ─────────────────────────── 整张表单 ───────────────────────────
 // 关键决策 A：表单 = 元信息 + 有序的字段数组。这份对象就是存进 JSONB 的东西。

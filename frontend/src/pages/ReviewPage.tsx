@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api';
 import type { ReviewItem } from '../api';
 import { SubjectView } from '../components/SubjectView';
+import { fmtAnswer } from '../format';
 
 // 审核台：审核员逐条看 标注对象 + 提交结果 + AI 建议 → 通过 / 打回。
 export function ReviewPage() {
@@ -94,9 +95,7 @@ export function ReviewPage() {
                   {Object.entries(current.result).map(([k, v]) => (
                     <li key={k}>
                       <span className="rv__key">{k}</span>
-                      <span className="rv__val">
-                        {Array.isArray(v) ? v.join(', ') : String(v)}
-                      </span>
+                      <span className="rv__val">{fmtAnswer(v)}</span>
                     </li>
                   ))}
                 </ul>

@@ -109,8 +109,18 @@ export class AnnotationsService {
     for (const f of schema.fields ?? []) {
       if (f.type === 'radio' || f.type === 'select') {
         out[f.id] = f.options?.[0]?.value ?? '';
+      } else if (
+        f.type === 'bbox' ||
+        f.type === 'textspan' ||
+        f.type === 'timespan' ||
+        f.type === 'polygon' ||
+        f.type === 'keypoints'
+      ) {
+        out[f.id] = []; // AI 编不出这些几何标注，先给空
       } else if (f.type === 'checkbox') {
         out[f.id] = f.options?.[0] ? [f.options[0].value] : [];
+      } else if (f.type === 'rating') {
+        out[f.id] = '3';
       } else if (f.type === 'number') {
         out[f.id] = '0';
       } else {

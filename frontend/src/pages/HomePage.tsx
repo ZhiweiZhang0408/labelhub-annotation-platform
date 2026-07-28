@@ -23,7 +23,6 @@ export function HomePage() {
   const nav = useNavigate();
   const user = getUser();
   const isOwner = user?.role === 'TASK_OWNER';
-  const isWorker = !!user && user.role !== 'TASK_OWNER'; // 标注/审核同一岗位
 
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -202,21 +201,19 @@ export function HomePage() {
                       Details
                     </Link>
                   )}
-                  {/* 工人(标注/审核同一岗位)：已发布任务可标注(纯人工)+审核 */}
-                  {isWorker && t.status === 'PUBLISHED' && (
-                    <>
-                      {t.plan === 'HUMAN_ONLY' && (
-                        <Link
-                          className="linkbtn"
-                          to={`/tasks/${t.id}/annotate`}
-                        >
-                          Annotate
-                        </Link>
-                      )}
-                      <Link className="linkbtn" to={`/tasks/${t.id}/review`}>
-                        Review
+                  {/* 标注员：只标注(纯人工已发布任务)，不显示 Review(不能审自己) */}
+                  {user?.role === 'ANNOTATOR' &&
+                    t.plan === 'HUMAN_ONLY' &&
+                    t.status === 'PUBLISHED' && (
+                      <Link className="linkbtn" to={`/tasks/${t.id}/annotate`}>
+                        Annotate
                       </Link>
-                    </>
+                    )}
+                  {/* 审核员：只审核已发布任务 */}
+                  {user?.role === 'REVIEWER' && t.status === 'PUBLISHED' && (
+                    <Link className="linkbtn" to={`/tasks/${t.id}/review`}>
+                      Review
+                    </Link>
                   )}
                 </div>
               </li>

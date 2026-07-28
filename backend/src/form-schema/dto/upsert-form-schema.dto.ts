@@ -36,6 +36,13 @@ const FIELD_TYPES: FieldType[] = [
   'radio',
   'checkbox',
   'select',
+  'bbox', // 进阶：图片框选(类别复用 options)
+  'textspan', // 进阶：文本高亮(标签复用 options)
+  'timespan', // 进阶：音视频时间区间(标签复用 options)
+  'polygon', // 进阶：图片多边形分割(类别复用 options)
+  'keypoints', // 进阶：图片关键点(类别复用 options)
+  'rating', // 进阶：星级评分(1~5)
+  'transcription', // 进阶：音视频转写(听打成文本)
 ];
 
 // 一个选项：label(给人看) + value(存进结果)，都不能空。

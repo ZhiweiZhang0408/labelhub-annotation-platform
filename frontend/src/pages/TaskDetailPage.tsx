@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, getUser } from '../api';
 import type { ItemPayload, TaskProgress, TaskSummary, Worker } from '../api';
+import { fmtAnswer } from '../format';
 
 interface ResultItem {
   id: string;
@@ -193,9 +194,7 @@ export function TaskDetailPage() {
                       {Object.entries(it.result).map(([k, v]) => (
                         <li key={k}>
                           <span className="rv__key">{k}</span>
-                          <span className="rv__val">
-                            {Array.isArray(v) ? v.join(', ') : String(v)}
-                          </span>
+                          <span className="rv__val">{fmtAnswer(v)}</span>
                         </li>
                       ))}
                     </ul>

@@ -16,8 +16,17 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpsertFormSchemaDto } from './dto/upsert-form-schema.dto';
 
-// 需要选项的三种"选择类"字段
+// 必须有 options 的"选择类"字段
 const CHOICE_TYPES = ['radio', 'checkbox', 'select'];
+// 允许带 options 的所有类型(选择类 + 进阶标注类型，后者用 options 当"类别/标签")
+const OPTION_TYPES = [
+  ...CHOICE_TYPES,
+  'bbox',
+  'polygon',
+  'keypoints',
+  'textspan',
+  'timespan',
+];
 
 @Injectable()
 export class FormSchemaService {
@@ -76,8 +85,8 @@ export class FormSchemaService {
         );
       }
 
-      // 规则 3：非选择类字段不该带 options（多半是配错了）
-      if (!isChoice && field.options && field.options.length > 0) {
+      // 规则 3：只有"用不到 options 的类型"(文本/数字/评分/转写)带了 options 才算配错
+      if (!OPTION_TYPES.includes(field.type) && field.options && field.options.length > 0) {
         throw new BadRequestException(
           `字段「${field.id}」是 ${field.type}，不应该有选项`,
         );

@@ -175,8 +175,49 @@ export function FieldEditor({ index, field, onUpdate, onRemove }: Props) {
         <span className="feditor__warn">⚠ Question title can’t be empty</span>
       )}
 
-      {/* 按类型渲染主体 */}
-      {isChoice && 'options' in field ? (
+      {/* bbox 提示 */}
+      {field.type === 'bbox' && (
+        <p className="feditor__advice">
+          🖼️ Annotators draw boxes on the image. Options below are the object
+          classes.
+        </p>
+      )}
+      {/* textspan 提示 */}
+      {field.type === 'textspan' && (
+        <p className="feditor__advice">
+          🖍️ Annotators highlight parts of the text. Options below are the
+          labels.
+        </p>
+      )}
+      {/* timespan 提示 */}
+      {field.type === 'timespan' && (
+        <p className="feditor__advice">
+          ⏱️ Annotators mark time ranges on audio/video. Options below are the
+          labels.
+        </p>
+      )}
+      {field.type === 'polygon' && (
+        <p className="feditor__advice">
+          🔷 Annotators draw polygons on the image. Options are the classes.
+        </p>
+      )}
+      {field.type === 'keypoints' && (
+        <p className="feditor__advice">
+          📍 Annotators drop labeled points on the image. Options are the
+          classes.
+        </p>
+      )}
+      {field.type === 'rating' && (
+        <p className="feditor__advice">⭐ Annotators give a 1–5 star rating.</p>
+      )}
+      {field.type === 'transcription' && (
+        <p className="feditor__advice">
+          🎧 Annotators listen to audio/video and type a transcript.
+        </p>
+      )}
+
+      {/* 有 options 的(选择类 + bbox)用选项编辑器；其余显示输入预览 */}
+      {'options' in field ? (
         <div className="feditor__options">
           {field.options.map((opt, i) => (
             <div className="opt" key={opt.value}>
@@ -282,6 +323,18 @@ export function FieldEditor({ index, field, onUpdate, onRemove }: Props) {
 
 // 文本/数字类：显示标注员将看到的输入框（禁用，纯示意）
 function FieldPreview({ type }: { type: FormField['type'] }) {
+  if (type === 'rating') {
+    return <div className="feditor__preview">★ ★ ★ ★ ★</div>;
+  }
+  if (type === 'transcription') {
+    return (
+      <textarea
+        className="feditor__preview"
+        disabled
+        placeholder="Audio/video player + transcript box"
+      />
+    );
+  }
   if (type === 'textarea') {
     return (
       <textarea

@@ -58,7 +58,19 @@ export function FormPreview({ schema, subjectKind, sampleItem, onClose }: Props)
           </div>
 
           {/* 表单：交给可复用的渲染器；校验通过后把结果给我们显示 */}
-          <FormRenderer schema={schema} onSubmit={setResult} />
+          <FormRenderer
+            schema={schema}
+            subject={
+              sampleItem
+                ? {
+                    kind: sampleItem.kind,
+                    url: sampleItem.url,
+                    text: sampleItem.text,
+                  }
+                : undefined
+            }
+            onSubmit={setResult}
+          />
 
           {result && (
             <div className="pv__result">

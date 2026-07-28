@@ -10,22 +10,59 @@
 
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import type { FormField, FormSchemaDefinition } from '../types/form-schema';
+import type {
+  Box,
+  FormField,
+  FormSchemaDefinition,
+  Keypoint,
+  Polygon,
+  Span,
+  TimeSpan,
+} from '../types/form-schema';
+import { BboxEditor } from './BboxEditor';
+import { TextSpanEditor } from './TextSpanEditor';
+import { TimeSpanEditor } from './TimeSpanEditor';
+import { PolygonEditor } from './PolygonEditor';
+import { KeypointsEditor } from './KeypointsEditor';
 
-// 一个答案：单值(文本/数字/单选/下拉)是字符串；多选是字符串数组。
-type AnswerValue = string | string[];
+// 一个答案：字符串 / 字符串数组 / 各种几何标注数组。
+type AnswerValue =
+  | string
+  | string[]
+  | Box[]
+  | Span[]
+  | TimeSpan[]
+  | Polygon[]
+  | Keypoint[];
 export type Answers = Record<string, AnswerValue>;
+
+// 标注对象(渲染 bbox 等"素材耦合"字段时需要)
+interface Subject {
+  kind: string;
+  url?: string;
+  text?: string;
+}
 
 interface Props {
   schema: FormSchemaDefinition;
+  subject?: Subject;
   onSubmit: (result: Answers) => void;
   submitLabel?: string;
 }
 
-// 初始答案：每个字段给个空值(多选给空数组)。
+// 初始答案：每个字段给个空值(多选/框选给空数组)。
 function initAnswers(fields: FormField[]): Answers {
   const a: Answers = {};
-  for (const f of fields) a[f.id] = f.type === 'checkbox' ? [] : '';
+  for (const f of fields)
+    a[f.id] =
+      f.type === 'checkbox' ||
+      f.type === 'bbox' ||
+      f.type === 'textspan' ||
+      f.type === 'timespan' ||
+      f.type === 'polygon' ||
+      f.type === 'keypoints'
+        ? []
+        : '';
   return a;
 }
 
@@ -67,7 +104,12 @@ function validateField(field: FormField, value: AnswerValue): string | null {
   return null;
 }
 
-export function FormRenderer({ schema, onSubmit, submitLabel = 'Submit' }: Props) {
+export function FormRenderer({
+  schema,
+  subject,
+  onSubmit,
+  submitLabel = 'Submit',
+}: Props) {
   const [answers, setAnswers] = useState<Answers>(() => initAnswers(schema.fields));
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -115,6 +157,7 @@ export function FormRenderer({ schema, onSubmit, submitLabel = 'Submit' }: Props
               </label>
               <RendererControl
                 field={field}
+                subject={subject}
                 value={answers[field.id]}
                 invalid={!!errors[field.id]}
                 onChange={(v) => setAnswer(field.id, v)}
@@ -141,16 +184,122 @@ export function FormRenderer({ schema, onSubmit, submitLabel = 'Submit' }: Props
 // 按字段 type 渲染受控控件。
 function RendererControl({
   field,
+  subject,
   value,
   invalid,
   onChange,
 }: {
   field: FormField;
+  subject?: Subject;
   value: AnswerValue;
   invalid: boolean;
   onChange: (v: AnswerValue) => void;
 }) {
   const cls = `rd__input${invalid ? ' rd__input--err' : ''}`;
+
+  // 进阶：图片框选
+  if (field.type === 'bbox' && 'options' in field) {
+    return (
+      <BboxEditor
+        imageUrl={subject?.kind === 'image' ? subject.url : undefined}
+        classes={field.options}
+        value={(value as Box[]) ?? []}
+        onChange={(boxes) => onChange(boxes)}
+      />
+    );
+  }
+
+  // 进阶：文本高亮
+  if (field.type === 'textspan' && 'options' in field) {
+    return (
+      <TextSpanEditor
+        text={subject?.kind === 'text' ? subject.text : undefined}
+        classes={field.options}
+        value={(value as Span[]) ?? []}
+        onChange={(spans) => onChange(spans)}
+      />
+    );
+  }
+
+  // 进阶：音视频时间区间
+  if (field.type === 'timespan' && 'options' in field) {
+    return (
+      <TimeSpanEditor
+        mediaUrl={
+          subject?.kind === 'audio' || subject?.kind === 'video'
+            ? subject.url
+            : undefined
+        }
+        mediaKind={subject?.kind}
+        classes={field.options}
+        value={(value as TimeSpan[]) ?? []}
+        onChange={(spans) => onChange(spans)}
+      />
+    );
+  }
+
+  // 进阶：图片多边形分割
+  if (field.type === 'polygon' && 'options' in field) {
+    return (
+      <PolygonEditor
+        imageUrl={subject?.kind === 'image' ? subject.url : undefined}
+        classes={field.options}
+        value={(value as Polygon[]) ?? []}
+        onChange={(v) => onChange(v)}
+      />
+    );
+  }
+
+  // 进阶：图片关键点
+  if (field.type === 'keypoints' && 'options' in field) {
+    return (
+      <KeypointsEditor
+        imageUrl={subject?.kind === 'image' ? subject.url : undefined}
+        classes={field.options}
+        value={(value as Keypoint[]) ?? []}
+        onChange={(v) => onChange(v)}
+      />
+    );
+  }
+
+  // 进阶：星级评分
+  if (field.type === 'rating') {
+    const cur = Number(value) || 0;
+    return (
+      <div className="rating">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            className={`rating__star${n <= cur ? ' is-on' : ''}`}
+            onClick={() => onChange(String(n))}
+          >
+            ★
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  // 进阶：音视频转写
+  if (field.type === 'transcription') {
+    return (
+      <div className="trx">
+        {subject?.kind === 'audio' && (
+          <audio className="tspn__media" src={subject.url} controls />
+        )}
+        {subject?.kind === 'video' && (
+          <video className="tspn__media" src={subject.url} controls />
+        )}
+        <textarea
+          className={`${cls} rd__textarea`}
+          value={value as string}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Type the transcript…"
+        />
+      </div>
+    );
+  }
 
   if (field.type === 'text') {
     return (
